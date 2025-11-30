@@ -3,6 +3,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
+import BusinessProfileSetup from './components/BusinessProfileSetup';
 import './App.css';
 
 function App() {
@@ -39,6 +40,15 @@ function App() {
             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               <span style={{ fontWeight: 'bold' }}>שלום, {user.name}</span>
               
+              {user.role === 'Service Provider' && (
+                <button 
+                  onClick={() => setView('business-setup')} 
+                  style={{ padding: '8px 15px', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}
+                >
+                  ⚙️ הגדרת עסק
+                </button>
+              )}
+
               <button 
                 onClick={() => setView('my-appointments')} 
                 style={{ padding: '8px 15px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
@@ -121,6 +131,14 @@ function App() {
                 <button onClick={() => setView('home')} style={{ padding: '10px 20px', cursor: 'pointer' }}>חזרה לקטלוג השירותים</button>
              </div>
           </div>
+        )}
+
+        {/* 5. דף הקמת עסק */}
+        {view === 'business-setup' && user && (
+           <BusinessProfileSetup 
+              user={user} 
+              onSaveSuccess={() => setView('home')} 
+           />
         )}
 
       </main>

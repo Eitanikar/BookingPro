@@ -198,7 +198,41 @@ app.get('/api/services', async (req, res) => {
         res.status(500).send('שגיאת שרת');
     }
 });
+
+// --------------------------------------------------------------------
+// [7] Create Business Profile - יצירת פרופיל עסקי
+// --------------------------------------------------------------------
+app.post('/api/business-profile', async (req, res) => {
+    const { userId, businessName, address, phone, description } = req.body;
+
+    if (!userId || !businessName) {
+        return res.status(400).json({ msg: 'חובה למלא מזהה משתמש ושם עסק' });
+    }
+
+    try {
+        // בדיקה אם כבר קיים פרופיל למשתמש הזה
+        const checkExisting = await db.query('SELECT * FROM businesses WHERE user_id = $1', [userId]);
+        if (checkExisting.rows.length > 0) {
+            return res.status(400).json({ msg: 'כבר קיים פרופיל עסקי למשתמש זה' });
+        }
+
+        const query = `
+            INSERT INTO businesses (user_id, business_name, address, phone, description)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `;
+        const result = await db.query(query, [userId, businessName, address, phone, description]);
+        
+        res.json({ msg: 'הפרופיל העסקי נוצר בהצלחה!', business: result.rows[0] });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאת שרת ביצירת פרופיל עסק');
+    }
+});
+
 // --------------------------------------------------------------------
 // [2] הפעלת השרת
 // --------------------------------------------------------------------
 app.listen(PORT, () => console.log(`שרת Node.js פועל בפורט ${PORT}`)); // זה הפתרון!
+
