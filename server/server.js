@@ -11,6 +11,27 @@ const JWT_SECRET = 'Haim_Yoni_Yehuda_Eitan_Yosef_Secure_Key'; // חובה לשנ
 
 const app = express();
 
+// --- Middleware לאימות Token ---
+const authenticateToken = (req, res, next) => {
+    // הלקוח צריך לשלוח כותרת: Authorization: Bearer <TOKEN>
+    const authHeader = req.headers['authorization'];
+    // מפרידים את המילה Bearer מהטוקן עצמו
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ msg: 'אין הרשאה (חסר טוקן)' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, userPayload) => {
+        if (err) {
+            return res.status(403).json({ msg: 'הטוקן אינו תקין או פג תוקף' });
+        }
+        // אם הכל תקין, שומרים את פרטי המשתמש בתוך האובייקט req
+        req.user = userPayload;
+        next(); // ממשיכים לפונקציה הבאה (הנתיב עצמו)
+    });
+};
+
 app.use(cors());
 app.use(express.json()); 
 
@@ -228,6 +249,61 @@ app.post('/api/business-profile', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).send('שגיאת שרת ביצירת פרופיל עסק');
+    }
+});
+
+// --------------------------------------------------------------------
+// [8] Get Provider Calendar Appointments - שליפת תורים ליומן הספק
+// דורש: providerId מנתיב ה-URL, וטווח תאריכים (start, end) מפרמטרי Query.
+// --------------------------------------------------------------------
+app.get('/api/calendar/provider/:providerId', authenticateToken, async (req, res) => {
+    const providerId = req.params.providerId;
+    const { start, end } = req.query;
+
+    // --- בדיקות אבטחה (Authorization) ---
+
+    // 1. האם המשתמש המחובר הוא בכלל נותן שירות?
+    if (req.user.role !== 'Service Provider') {
+        return res.status(403).json({ msg: 'גישה נדחתה: משתמש זה אינו ספק שירות.' });
+    }
+
+    // 2. האם הספק מנסה לצפות ביומן של עצמו? (מונעים מספק א' לראות יומן של ספק ב')
+    // שים לב: המרה ל-Number או String כדי לוודא השוואה נכונה
+    if (parseInt(req.user.userId) !== parseInt(providerId)) {
+        return res.status(403).json({ msg: 'אין לך הרשאה לצפות ביומן של ספק אחר.' });
+    }
+
+    // --- סוף בדיקות אבטחה, מכאן הלוגיקה הרגילה ---
+
+    if (!start || !end) {
+        return res.status(400).json({ msg: 'נדרש טווח תאריכים (start, end).' });
+    }
+
+    try {
+        const query = `
+            SELECT
+                a.id,
+                a.start_time,
+                a.end_time,
+                s.service_name,
+                u.name AS client_name,
+                a.client_id
+            FROM appointments a
+            JOIN services s ON a.service_id = s.id
+            JOIN users u ON a.client_id = u.id
+            WHERE
+                a.provider_id = $1
+                AND a.start_time >= $2
+                AND a.start_time <= $3
+            ORDER BY a.start_time ASC
+        `;
+
+        const result = await db.query(query, [providerId, start, end]);
+        res.json(result.rows);
+
+    } catch (err) {
+        console.error('Error fetching provider calendar:', err.message);
+        res.status(500).send('שגיאת שרת פנימית בשליפת יומן הספק.');
     }
 });
 
