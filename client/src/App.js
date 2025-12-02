@@ -146,4 +146,11 @@ function App() {
   );
 }
 
+{/* --- Footer / כותרת תחתונה --- */}
+      <footer style={{ backgroundColor: '#282c34', color: '#999', padding: '15px', textAlign: 'center', fontSize: '0.9em', borderTop: '1px solid #444' }}>
+        <p style={{ margin: 0 }}>
+          © 2025 <strong>BookingPro</strong> | נבנה ע"י הצוות: חיים, יוני, יהודה, איתן ויוסף
+        </p>
+      </footer>
 export default App;
+
