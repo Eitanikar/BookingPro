@@ -1,4 +1,4 @@
-// χεαυ: client/src/components/ProviderCalendar.js
+ο»Ώ// Χ§Χ•Χ‘Χ¥: client/src/components/ProviderCalendar.js
 import React, { useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -6,16 +6,16 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import heLocale from '@fullcalendar/core/locales/he';
 
-// ξχαμιν ΰϊ δΰεαιιχθ user λγι μγςϊ ξι δρτχ δξηεαψ
+// ΧΧ§Χ‘ΧΧ™Χ ΧΧª Χ”ΧΧ•Χ‘Χ™Χ™Χ§Χ user Χ›Χ“Χ™ ΧΧ“ΧΆΧª ΧΧ™ Χ”Χ΅Χ¤Χ§ Χ”ΧΧ—Χ•Χ‘Χ¨
 const ProviderCalendar = ({ user }) => {
 
     const calendarRef = useRef(null);
 
-    // τεπχφιδ ζε ϊιχψΰ ΰεθεξθιϊ ς"ι FullCalendar αλμ τςν ωφψικ μθςεο πϊεπιν
-    // (μξωμ: αθςιπδ ψΰωεπιϊ, ΰε λωμεηφιν ςμ "δαΰ/δχεγν")
+    // Χ¤Χ•Χ Χ§Χ¦Χ™Χ” Χ–Χ• ΧªΧ™Χ§Χ¨Χ ΧΧ•ΧΧ•ΧΧΧ™Χª ΧΆ"Χ™ FullCalendar Χ‘Χ›Χ Χ¤ΧΆΧ Χ©Χ¦Χ¨Χ™Χ ΧΧΧΆΧ•Χ Χ ΧªΧ•Χ Χ™Χ
+    // (ΧΧΧ©Χ: Χ‘ΧΧΆΧ™Χ Χ” Χ¨ΧΧ©Χ•Χ Χ™Χª, ΧΧ• Χ›Χ©ΧΧ•Χ—Χ¦Χ™Χ ΧΆΧ "Χ”Χ‘Χ/Χ”Χ§Χ•Χ“Χ")
     const fetchEvents = async (fetchInfo, successCallback, failureCallback) => {
         try {
-            // 1. ωμιτϊ δθεχο μφεψκ ΰιξεϊ
+            // 1. Χ©ΧΧ™Χ¤Χª Χ”ΧΧ•Χ§Χ ΧΧ¦Χ•Χ¨Χ ΧΧ™ΧΧ•Χª
             const token = localStorage.getItem('token');
             if (!token) {
                 console.error("No token found");
@@ -23,14 +23,14 @@ const ProviderCalendar = ({ user }) => {
                 return;
             }
 
-            // 2. δλπϊ δτψξθψιν μωψϊ (start ε-end ξβιςιν ξ-FullCalendar)
+            // 2. Χ”Χ›Χ Χª Χ”Χ¤Χ¨ΧΧΧ¨Χ™Χ ΧΧ©Χ¨Χª (start Χ•-end ΧΧ’Χ™ΧΆΧ™Χ Χ-FullCalendar)
             const start = fetchInfo.start.toISOString();
             const end = fetchInfo.end.toISOString();
 
-            // 3. αιφες δχψιΰδ μ-API δξΰεαθη ωιφψπε
+            // 3. Χ‘Χ™Χ¦Χ•ΧΆ Χ”Χ§Χ¨Χ™ΧΧ” Χ-API Χ”ΧΧΧ•Χ‘ΧΧ— Χ©Χ™Χ¦Χ¨Χ Χ•
             const response = await fetch(`http://localhost:5000/api/calendar/provider/${user.id}?start=${start}&end=${end}`, {
                 headers: {
-                    'Authorization': `Bearer ${token}` // ωμιηϊ δθεχο αλεϊψϊ
+                    'Authorization': `Bearer ${token}` // Χ©ΧΧ™Χ—Χª Χ”ΧΧ•Χ§Χ Χ‘Χ›Χ•ΧªΧ¨Χª
                 }
             });
 
@@ -40,19 +40,19 @@ const ProviderCalendar = ({ user }) => {
 
             const data = await response.json();
 
-            // 4. ξιτει (Mapping) δπϊεπιν ξδτεψξθ ωμ δωψϊ μτεψξθ ωμ FullCalendar
-            // δωψϊ ξηζιψ: { start_time, end_time, service_name, client_name, ... }
-            // διεξο φψικ: { title, start, end, ... }
+            // 4. ΧΧ™Χ¤Χ•Χ™ (Mapping) Χ”Χ ΧªΧ•Χ Χ™Χ ΧΧ”Χ¤Χ•Χ¨ΧΧ Χ©Χ Χ”Χ©Χ¨Χª ΧΧ¤Χ•Χ¨ΧΧ Χ©Χ FullCalendar
+            // Χ”Χ©Χ¨Χª ΧΧ—Χ–Χ™Χ¨: { start_time, end_time, service_name, client_name, ... }
+            // Χ”Χ™Χ•ΧΧ Χ¦Χ¨Χ™Χ: { title, start, end, ... }
             const events = data.map(appt => ({
                 id: appt.id,
-                title: `${appt.service_name} - ${appt.client_name}`, // δλεϊψϊ ωϊετις αχεαιδ
+                title: `${appt.service_name} - ${appt.client_name}`, // Χ”Χ›Χ•ΧªΧ¨Χª Χ©ΧªΧ•Χ¤Χ™ΧΆ Χ‘Χ§Χ•Χ‘Χ™Χ”
                 start: appt.start_time,
                 end: appt.end_time,
-                backgroundColor: '#2196F3', // φας ψχς μϊεψ
+                backgroundColor: '#2196F3', // Χ¦Χ‘ΧΆ Χ¨Χ§ΧΆ ΧΧªΧ•Χ¨
                 borderColor: '#1976D2'
             }));
 
-            // 5. ςγλεο διεξο ςν δΰιψεςιν δξελπιν
+            // 5. ΧΆΧ“Χ›Χ•Χ Χ”Χ™Χ•ΧΧ ΧΆΧ Χ”ΧΧ™Χ¨Χ•ΧΆΧ™Χ Χ”ΧΧ•Χ›Χ Χ™Χ
             successCallback(events);
 
         } catch (err) {
@@ -63,7 +63,7 @@ const ProviderCalendar = ({ user }) => {
 
     return (
         <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>?? ιεξο πιδεμ ϊεψιν</h2>
+            <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>?? Χ™Χ•ΧΧ Χ Χ™Χ”Χ•Χ ΧªΧ•Χ¨Χ™Χ</h2>
 
             <div className="calendar-wrapper" style={{ direction: 'rtl' }}>
                 <FullCalendar
@@ -83,7 +83,7 @@ const ProviderCalendar = ({ user }) => {
                     allDaySlot={false}
                     height="auto"
 
-                    // --- λΰο δωιπει δβγεμ: ηιαεψ δτεπχφιδ μιεξο ---
+                    // --- Χ›ΧΧ Χ”Χ©Χ™Χ Χ•Χ™ Χ”Χ’Χ“Χ•Χ: Χ—Χ™Χ‘Χ•Χ¨ Χ”Χ¤Χ•Χ Χ§Χ¦Χ™Χ” ΧΧ™Χ•ΧΧ ---
                     events={fetchEvents}
                 />
             </div>

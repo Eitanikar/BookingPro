@@ -11,6 +11,8 @@ const JWT_SECRET = 'Haim_Yoni_Yehuda_Eitan_Yosef_Secure_Key'; // חובה לשנ
 
 const app = express();
 
+app.use(cors());
+app.use(express.json());
 // --- Middleware לאימות Token ---
 const authenticateToken = (req, res, next) => {
     // הלקוח צריך לשלוח כותרת: Authorization: Bearer <TOKEN>
@@ -30,10 +32,7 @@ const authenticateToken = (req, res, next) => {
         req.user = userPayload;
         next(); // ממשיכים לפונקציה הבאה (הנתיב עצמו)
     });
-};
-
-app.use(cors());
-app.use(express.json()); 
+}; 
 
 // --------------------------------------------------------------------
 // [1] User Authentication Route (Registration - Core Logic)
