@@ -63,7 +63,7 @@ const ProviderCalendar = ({ user }) => {
 
     return (
         <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>?? יומן ניהול תורים</h2>
+            <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>יומן ניהול תורים</h2>
 
             <div className="calendar-wrapper" style={{ direction: 'rtl' }}>
                 <FullCalendar
