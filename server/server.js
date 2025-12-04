@@ -12,7 +12,7 @@ const JWT_SECRET = 'Haim_Yoni_Yehuda_Eitan_Yosef_Secure_Key'; // חובה לשנ
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // תמיכה ב-JSON בגודל עד 10MB 
 // --- Middleware לאימות Token ---
 const authenticateToken = (req, res, next) => {
     // הלקוח צריך לשלוח כותרת: Authorization: Bearer <TOKEN>
@@ -306,6 +306,40 @@ app.get('/api/calendar/provider/:providerId', authenticateToken, async (req, res
     }
 });
 
+
+// --------------------------------------------------------------------
+// [8] Gallery Management - ניהול גלריה
+// --------------------------------------------------------------------
+
+// הוספת תמונה חדשה לגלריה
+app.post('/api/photos', async (req, res) => {
+    const { userId, imageUrl } = req.body;
+    try {
+        const result = await db.query(
+            'INSERT INTO business_photos (user_id, image_url) VALUES ($1, $2) RETURNING *',
+            [userId, imageUrl]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בשמירת התמונה');
+    }
+});
+
+// שליפת כל התמונות של עסק מסוים
+app.get('/api/photos/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await db.query(
+            'SELECT * FROM business_photos WHERE user_id = $1 ORDER BY created_at DESC',
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בטעינת התמונות');
+    }
+});
 // --------------------------------------------------------------------
 // [2] הפעלת השרת
 // --------------------------------------------------------------------

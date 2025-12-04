@@ -4,11 +4,12 @@ import Login from './components/Login';
 import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
 import BusinessProfileSetup from './components/BusinessProfileSetup';
+// BusinessGallery נמחק מכאן כי הוא כבר בתוך BusinessProfileSetup
 import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('home'); // home, login, register, my-appointments
+  const [view, setView] = useState('home'); 
 
   const handleLoginSuccess = (userData, token) => {
     setUser(userData);
@@ -23,7 +24,7 @@ function App() {
   };
 
   return (
-    <div className="App" style={{ fontFamily: 'Arial', direction: 'rtl' }}>
+    <div className="App" style={{ fontFamily: 'Arial', direction: 'rtl', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* --- Header / Navbar --- */}
       <header style={{ backgroundColor: '#282c34', padding: '15px 30px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}>
@@ -40,6 +41,7 @@ function App() {
             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               <span style={{ fontWeight: 'bold' }}>שלום, {user.name}</span>
               
+              {/* כפתור לנותני שירות בלבד */}
               {user.role === 'Service Provider' && (
                 <button 
                   onClick={() => setView('business-setup')} 
@@ -73,24 +75,21 @@ function App() {
       </header>
 
       {/* --- Main Content --- */}
-      <main style={{ padding: '20px', minHeight: '80vh', backgroundColor: '#f5f5f5' }}>
+      <main style={{ padding: '20px', flex: 1, backgroundColor: '#f5f5f5' }}>
         
-        {/* 1. דף הבית */}
+        {/* דף הבית */}
         {view === 'home' && (
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
              <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                 <h2 style={{ color: '#333' }}>ברוכים הבאים למערכת זימון התורים המתקדמת</h2>
              </div>
 
-             {/* --- התיקון: תנאי להצגת השירותים --- */}
              {user ? (
-               // אם המשתמש מחובר -> מציגים את השירותים
                <div>
                   <p style={{ textAlign: 'center', color: '#666' }}>בחרו שירות והזמינו תור בקלות ובמהירות</p>
                   <ServicesList user={user} />
                </div>
              ) : (
-               // אם המשתמש לא מחובר -> מציגים הודעה וכפתור התחברות
                <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
                   <h3>🔒 התוכן זמין למשתמשים רשומים בלבד</h3>
                   <p>כדי לצפות במחירון השירותים ולקבוע תור, עליך להתחבר למערכת.</p>
@@ -107,7 +106,7 @@ function App() {
           </div>
         )}
 
-        {/* 2. דף התחברות */}
+        {/* דפים נוספים */}
         {view === 'login' && (
           <div style={{ textAlign: 'center' }}>
             <Login onLoginSuccess={handleLoginSuccess} />
@@ -115,7 +114,6 @@ function App() {
           </div>
         )}
 
-        {/* 3. דף הרשמה */}
         {view === 'register' && (
           <div style={{ textAlign: 'center' }}>
             <Register />
@@ -123,7 +121,6 @@ function App() {
           </div>
         )}
 
-        {/* 4. דף התורים שלי */}
         {view === 'my-appointments' && (
           <div>
              <MyAppointments user={user} />
@@ -133,7 +130,7 @@ function App() {
           </div>
         )}
 
-        {/* 5. דף הקמת עסק */}
+        {/* דף ניהול עסק (כולל גלריה) */}
         {view === 'business-setup' && user && (
            <BusinessProfileSetup 
               user={user} 
@@ -142,15 +139,16 @@ function App() {
         )}
 
       </main>
-    </div>
-  );
-}
 
-{/* --- Footer / כותרת תחתונה --- */}
+      {/* --- Footer --- */}
       <footer style={{ backgroundColor: '#282c34', color: '#999', padding: '15px', textAlign: 'center', fontSize: '0.9em', borderTop: '1px solid #444' }}>
         <p style={{ margin: 0 }}>
           © 2025 <strong>BookingPro</strong> | נבנה ע"י הצוות: חיים, יוני, יהודה, איתן ויוסף
         </p>
       </footer>
-export default App;
 
+    </div>
+  );
+}
+
+export default App;
