@@ -1,63 +1,112 @@
 ﻿// קובץ: client/src/components/ProviderCalendar.js
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import interactionPlugin from '@fullcalendar/interaction'; // פלאגין שמאפשר לחיצות
 import heLocale from '@fullcalendar/core/locales/he';
+import ManualAppointmentModal from './ManualAppointmentModal'; // ייבוא החלון שיצרנו
 
-// מקבלים את האובייקט user כדי לדעת מי הספק המחובר
 const ProviderCalendar = ({ user }) => {
-
     const calendarRef = useRef(null);
 
-    // פונקציה זו תיקרא אוטומטית ע"י FullCalendar בכל פעם שצריך לטעון נתונים
-    // (למשל: בטעינה ראשונית, או כשלוחצים על "הבא/הקודם")
+    // --- State לניהול החלון הקופץ ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedSlot, setSelectedSlot] = useState({ dateStr: '', timeStr: '' });
+
+    // פונקציה לטעינת אירועים מהשרת
     const fetchEvents = async (fetchInfo, successCallback, failureCallback) => {
         try {
-            // 1. שליפת הטוקן לצורך אימות
             const token = localStorage.getItem('token');
-            if (!token) {
-                console.error("No token found");
-                failureCallback("No token");
-                return;
-            }
-
-            // 2. הכנת הפרמטרים לשרת (start ו-end מגיעים מ-FullCalendar)
             const start = fetchInfo.start.toISOString();
             const end = fetchInfo.end.toISOString();
 
-            // 3. ביצוע הקריאה ל-API המאובטח שיצרנו
+            // קריאה לשרת (נתיב שעדכנו במשימה 3)
             const response = await fetch(`http://localhost:5000/api/calendar/provider/${user.id}?start=${start}&end=${end}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}` // שליחת הטוקן בכותרת
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch events');
-            }
+            if (!response.ok) throw new Error('Failed to fetch');
 
             const data = await response.json();
 
-            // 4. מיפוי (Mapping) הנתונים מהפורמט של השרת לפורמט של FullCalendar
-            // השרת מחזיר: { start_time, end_time, service_name, client_name, ... }
-            // היומן צריך: { title, start, end, ... }
+            // המרת הנתונים לפורמט של FullCalendar
             const events = data.map(appt => ({
                 id: appt.id,
-                title: `${appt.service_name} - ${appt.client_name}`, // הכותרת שתופיע בקוביה
+                title: `${appt.service_name} - ${appt.client_name || 'לקוח מזדמן'}`,
                 start: appt.start_time,
                 end: appt.end_time,
-                backgroundColor: '#2196F3', // צבע רקע לתור
-                borderColor: '#1976D2'
+                // צבע שונה לתור ידני (כתום) ולתור רשום (כחול)
+                backgroundColor: appt.client_id ? '#2196F3' : '#FF9800',
+                borderColor: appt.client_id ? '#1976D2' : '#F57C00'
             }));
 
-            // 5. עדכון היומן עם האירועים המוכנים
             successCallback(events);
-
         } catch (err) {
             console.error('Error loading events:', err);
             failureCallback(err);
+        }
+    };
+
+    // --- אירוע לחיצה על משבצת (Date Click) ---
+    const handleDateClick = (arg) => {
+        // arg.dateStr מגיע בפורמט ISO. נפרק אותו לתצוגה יפה
+        const dateObj = new Date(arg.dateStr);
+
+        const datePart = dateObj.toLocaleDateString('he-IL'); // למשל: 25.10.2023
+        const timePart = dateObj.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); // למשל: 10:30
+
+        // שמירת הזמן שנבחר ופתיחת החלון
+        setSelectedSlot({
+            dateStr: datePart, // לתצוגה בחלון
+            timeStr: timePart, // לתצוגה בחלון
+            isoDate: arg.dateStr.split('T')[0], // תאריך נקי לשרת (YYYY-MM-DD)
+            isoTime: timePart // שעה נקייה לשרת
+        });
+
+        setIsModalOpen(true);
+    };
+
+    // --- שמירת התור (נשלח מהמודל) ---
+    const handleSaveManualAppointment = async (clientName, serviceId) => {
+        try {
+            const token = localStorage.getItem('token');
+
+            // הכנת המידע לשליחה לשרת
+            const payload = {
+                providerId: user.id,
+                serviceId: serviceId,
+                date: selectedSlot.isoDate, // התאריך שהקליקו עליו
+                time: selectedSlot.isoTime, // השעה שהקליקו עליה
+                clientName: clientName
+            };
+
+            // שליחה ל-API שיצרנו במשימה 2
+            const res = await fetch('http://localhost:5000/api/appointments/manual', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                alert('✅ התור נקבע בהצלחה!');
+                setIsModalOpen(false); // סגירת החלון
+
+                // רענון היומן באופן מיידי
+                if (calendarRef.current) {
+                    calendarRef.current.getApi().refetchEvents();
+                }
+            } else {
+                alert('שגיאה: ' + (data.msg || 'משהו השתבש'));
+            }
+        } catch (err) {
+            console.error(err);
+            alert('שגיאת תקשורת');
         }
     };
 
@@ -68,7 +117,7 @@ const ProviderCalendar = ({ user }) => {
             <div className="calendar-wrapper" style={{ direction: 'rtl' }}>
                 <FullCalendar
                     ref={calendarRef}
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]} // חובה לכלול את interactionPlugin
                     initialView="timeGridWeek"
                     headerToolbar={{
                         right: 'prev,next today',
@@ -83,10 +132,21 @@ const ProviderCalendar = ({ user }) => {
                     allDaySlot={false}
                     height="auto"
 
-                    // --- כאן השינוי הגדול: חיבור הפונקציה ליומן ---
+                    // --- הגדרות הלחיצה ---
+                    selectable={true}
+                    dateClick={handleDateClick} // הפונקציה שתופעל בלחיצה
+
                     events={fetchEvents}
                 />
             </div>
+
+            {/* --- החלון הקופץ שלנו --- */}
+            <ManualAppointmentModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleSaveManualAppointment}
+                bookingData={selectedSlot}
+            />
         </div>
     );
 };
