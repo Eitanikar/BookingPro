@@ -4,7 +4,7 @@ import Login from './components/Login';
 import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
 import BusinessProfileSetup from './components/BusinessProfileSetup';
-// BusinessGallery נמחק מכאן כי הוא כבר בתוך BusinessProfileSetup
+import BusinessesList from './components/BusinessesList'; // <--- [1] הוספה חדשה
 import './App.css';
 
 function App() {
@@ -41,6 +41,14 @@ function App() {
             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               <span style={{ fontWeight: 'bold' }}>שלום, {user.name}</span>
               
+              {/* --- [2] כפתור חדש לרשימת עסקים --- */}
+              <button 
+                  onClick={() => setView('businesses')} 
+                  style={{ padding: '8px 15px', backgroundColor: '#00BCD4', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}
+                >
+                  🏢 רשימת עסקים
+              </button>
+
               {/* כפתור לנותני שירות בלבד */}
               {user.role === 'Service Provider' && (
                 <button 
@@ -130,12 +138,17 @@ function App() {
           </div>
         )}
 
-        {/* דף ניהול עסק (כולל גלריה) */}
+        {/* דף ניהול עסק */}
         {view === 'business-setup' && user && (
            <BusinessProfileSetup 
               user={user} 
               onSaveSuccess={() => setView('home')} 
            />
+        )}
+
+        {/* --- [3] דף רשימת עסקים --- */}
+        {view === 'businesses' && (
+            <BusinessesList />
         )}
 
       </main>

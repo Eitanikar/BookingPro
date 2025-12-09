@@ -378,6 +378,30 @@ app.post('/api/appointments/manual', authenticateToken, async (req, res) => {
         res.status(500).send('שגיאה בקביעת התור הידני');
     }
 });
+
+// --------------------------------------------------------------------
+// [9] Get All Businesses - שליפת רשימת עסקים + תמונה ראשית
+// --------------------------------------------------------------------
+app.get('/api/businesses', async (req, res) => {
+    try {
+        // השאילתה החדשה:
+        // אנחנו שולפים את כל פרטי העסק (b.*)
+        // ומוסיפים עמודה חדשה (image_url) ע"י תת-שאילתה שלוקחת תמונה אחת מטבלת התמונות
+        const query = `
+            SELECT b.*, 
+            (SELECT image_url FROM business_photos bp WHERE bp.user_id = b.user_id LIMIT 1) as image_url
+            FROM businesses b
+            ORDER BY b.id DESC
+        `;
+        
+        const result = await db.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // --------------------------------------------------------------------
 // [2] הפעלת השרת
 // --------------------------------------------------------------------
