@@ -4,7 +4,8 @@ import Login from './components/Login';
 import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
 import BusinessProfileSetup from './components/BusinessProfileSetup';
-import BusinessesList from './components/BusinessesList'; // <--- [1] הוספה חדשה
+import BusinessesList from './components/BusinessesList'; 
+import ServiceManagement from './components/ServiceManagement'; // <--- [1] תוספת חדשה
 import './App.css';
 
 function App() {
@@ -41,7 +42,7 @@ function App() {
             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
               <span style={{ fontWeight: 'bold' }}>שלום, {user.name}</span>
               
-              {/* --- [2] כפתור חדש לרשימת עסקים --- */}
+              {/* כפתור רשימת עסקים (קיים) */}
               <button 
                   onClick={() => setView('businesses')} 
                   style={{ padding: '8px 15px', backgroundColor: '#00BCD4', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}
@@ -49,14 +50,24 @@ function App() {
                   🏢 רשימת עסקים
               </button>
 
-              {/* כפתור לנותני שירות בלבד */}
+              {/* כפתורים לנותני שירות בלבד */}
               {user.role === 'Service Provider' && (
-                <button 
-                  onClick={() => setView('business-setup')} 
-                  style={{ padding: '8px 15px', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}
-                >
-                  ⚙️ הגדרת עסק
-                </button>
+                <>
+                  <button 
+                    onClick={() => setView('business-setup')} 
+                    style={{ padding: '8px 15px', backgroundColor: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '5px' }}
+                  >
+                    ⚙️ הגדרת עסק
+                  </button>
+
+                  {/* --- [2] תוספת חדשה: כפתור ניהול שירותים --- */}
+                  <button 
+                    onClick={() => setView('services-mgmt')} 
+                    style={{ padding: '8px 15px', backgroundColor: '#9C27B0', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '5px' }}
+                  >
+                    ✂️ ניהול שירותים
+                  </button>
+                </>
               )}
 
               <button 
@@ -117,18 +128,18 @@ function App() {
         {/* דפים נוספים */}
         {view === 'login' && (
           <div style={{ textAlign: 'center' }}>
-            <Login onLoginSuccess={handleLoginSuccess} />
-            <button onClick={() => setView('home')} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>ביטול וחזרה לדף הבית</button>
+             <Login onLoginSuccess={handleLoginSuccess} />
+             <button onClick={() => setView('home')} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>ביטול וחזרה לדף הבית</button>
           </div>
         )}
 
         {view === 'register' && (
           <div style={{ textAlign: 'center' }}>
-            <Register />
-            <button onClick={() => setView('home')} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>ביטול וחזרה לדף הבית</button>
+             <Register />
+             <button onClick={() => setView('home')} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>ביטול וחזרה לדף הבית</button>
           </div>
         )}
-
+        
         {view === 'my-appointments' && (
           <div>
              <MyAppointments user={user} />
@@ -146,9 +157,14 @@ function App() {
            />
         )}
 
-        {/* --- [3] דף רשימת עסקים --- */}
+        {/* דף רשימת עסקים */}
         {view === 'businesses' && (
             <BusinessesList />
+        )}
+
+        {/* --- [3] תוספת חדשה: דף ניהול שירותים --- */}
+        {view === 'services-mgmt' && user && (
+            <ServiceManagement user={user} />
         )}
 
       </main>

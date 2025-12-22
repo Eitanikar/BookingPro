@@ -403,6 +403,73 @@ app.get('/api/businesses', async (req, res) => {
 });
 
 // --------------------------------------------------------------------
+// [10] Services Management (ניהול שירותים)
+// --------------------------------------------------------------------
+
+// 1. הוספת שירות חדש (רק לנותני שירות מחוברים)
+app.post('/api/services', authenticateToken, async (req, res) => {
+    const { name, description, price, duration } = req.body;
+    const providerId = req.user.userId; // המזהה מגיע מהטוקן המאובטח
+
+    // בדיקת הרשאות
+    if (req.user.role !== 'Service Provider') {
+        return res.status(403).json({ msg: 'רק נותני שירות יכולים להוסיף שירותים' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO services (provider_id, service_name, description, price, duration_minutes)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `;
+        const result = await db.query(query, [providerId, name, description, price, duration]);
+        
+        res.json(result.rows[0]); // מחזירים את השירות החדש שנוצר
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה ביצירת השירות');
+    }
+});
+
+// 2. קבלת כל השירותים של ספק ספציפי (למשל: כדי להציג בטופס הניהול או ללקוח)
+app.get('/api/services/provider/:providerId', async (req, res) => {
+    const { providerId } = req.params;
+    try {
+        const result = await db.query(
+            'SELECT * FROM services WHERE provider_id = $1 ORDER BY id ASC', 
+            [providerId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בטעינת שירותים');
+    }
+});
+
+// 3. מחיקת שירות (רק למי שיצר אותו)
+app.delete('/api/services/:id', authenticateToken, async (req, res) => {
+    const serviceId = req.params.id;
+    const providerId = req.user.userId;
+
+    try {
+        // מחיקה רק אם ה-ID של השירות תואם ל-ID של הספק (אבטחה)
+        const result = await db.query(
+            'DELETE FROM services WHERE id = $1 AND provider_id = $2 RETURNING *',
+            [serviceId, providerId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(403).json({ msg: 'אין הרשאה למחוק את השירות או שהוא לא קיים' });
+        }
+
+        res.json({ msg: 'השירות נמחק בהצלחה' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה במחיקת השירות');
+    }
+});
+
+// --------------------------------------------------------------------
 // [2] הפעלת השרת
 // --------------------------------------------------------------------
 initDB().then(() => {
