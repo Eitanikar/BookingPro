@@ -1,29 +1,42 @@
 // JavaScript source code
-// чебх: server/initDB.js
+// пїЅпїЅпїЅпїЅ: server/initDB.js
 const db = require('./db');
 
 const initDB = async () => {
     try {
-        console.log(' бегч тглерйн ргшщйн босг дръерйн...');
+        console.log(' пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ...');
 
-        // 1. десфъ тоегъ щн мчез (ан дйа ма чййоъ)
-        // жд оафщш мщоеш щн щм мчез щдъчщш имферйъ
+        // 1. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         await db.query(`
             ALTER TABLE appointments 
             ADD COLUMN IF NOT EXISTS client_name VARCHAR(100);
         `);
 
-        // 2. дфйлъ client_id маефцйермй (DROP NOT NULL)
-        // жд оафщш мдлрйс ъеш бмй щйдйд зййб мдйеъ очещш мощъощ шщен
+        // 2. пїЅпїЅпїЅпїЅпїЅ client_id пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (DROP NOT NULL)
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         await db.query(`
             ALTER TABLE appointments 
             ALTER COLUMN client_id DROP NOT NULL;
         `);
 
-        console.log('осг дръерйн оелп: дибмд appointments теглрд бдцмзд.');
+        // 3. Ч™Ч¦Ч™ЧЁЧЄ ЧЧ‘ЧњЧЄ Ч©Ч™ЧЁЧ•ЧЄЧ™Чќ (Services) - ЧђЧќ ЧњЧђ Ч§Ч™Ч™ЧћЧЄ
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS services (
+                id SERIAL PRIMARY KEY,
+                provider_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                service_name VARCHAR(100) NOT NULL,
+                description TEXT,
+                price DECIMAL(10, 2) NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        console.log('пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ appointments пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.');
 
     } catch (err) {
-        console.error('щвйад бтглеп осг дръерйн:', err.message);
+        console.error('пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ:', err.message);
     }
 };
 
