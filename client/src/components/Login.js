@@ -12,7 +12,7 @@ const Login = ({ onLoginSuccess }) => {
     const onSubmit = async e => {
         e.preventDefault();
         setMessage('מתחבר...');
-        
+
         try {
             const res = await fetch('http://localhost:5000/api/login', {
                 method: 'POST',
@@ -24,7 +24,7 @@ const Login = ({ onLoginSuccess }) => {
 
             if (res.ok) {
                 // הצלחה! מעדכנים את האפליקציה הראשית
-                onLoginSuccess(data.user, data.token); 
+                onLoginSuccess(data.user, data.token);
             } else {
                 setMessage(data.msg || 'שגיאת התחברות');
             }
@@ -34,36 +34,34 @@ const Login = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div style={{ maxWidth: '400px', margin: '20px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#fff' }}>
-            <h2>כניסה למערכת</h2>
+        <div className="card auth-container animate-fade-in">
+            <h2 className="text-center mb-4">כניסה למערכת</h2>
             <form onSubmit={onSubmit}>
-                <div style={{ marginBottom: '15px' }}>
-                    <input 
-                        type="email" 
-                        placeholder="אימייל" 
-                        name="email" 
-                        value={email} 
-                        onChange={onChange} 
-                        required 
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} 
+                <div className="mb-4">
+                    <input
+                        type="email"
+                        placeholder="אימייל"
+                        name="email"
+                        value={email}
+                        onChange={onChange}
+                        required
                     />
                 </div>
-                <div style={{ marginBottom: '15px' }}>
-                    <input 
-                        type="password" 
-                        placeholder="סיסמה" 
-                        name="password" 
-                        value={password} 
-                        onChange={onChange} 
-                        required 
-                        style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} 
+                <div className="mb-4">
+                    <input
+                        type="password"
+                        placeholder="סיסמה"
+                        name="password"
+                        value={password}
+                        onChange={onChange}
+                        required
                     />
                 </div>
-                <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '16px' }}>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
                     התחבר
                 </button>
             </form>
-            {message && <p style={{ color: 'red', marginTop: '10px', textAlign: 'center' }}>{message}</p>}
+            {message && <p className="text-center mt-4" style={{ color: '#f43f5e' }}>{message}</p>}
         </div>
     );
 };

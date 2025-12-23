@@ -18,19 +18,19 @@ const ServicesList = () => {
     }, []);
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <h2>השירותים שלנו</h2>
+        <div className="container">
+            <h2 className="text-center mb-4">השירותים שלנו</h2>
             {services.length === 0 ? (
-                <p>טוען שירותים... (אם זה לוקח זמן, ודא שיש נתונים ב-DB)</p>
+                <p className="text-center">טוען שירותים... (אם זה לוקח זמן, ודא שיש נתונים ב-DB)</p>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' }}>
+                <div className="services-grid">
                     {services.map(service => (
-                        <div key={service.id} style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '15px', backgroundColor: 'white', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>{service.service_name}</h3>
-                            <p style={{ margin: '5px 0', color: '#666' }}>ספק: {service.provider_name}</p>
-                            <p style={{ margin: '5px 0' }}>⏱️ {service.duration_minutes} דקות</p>
-                            <p style={{ fontWeight: 'bold', color: '#2196F3', fontSize: '1.2em' }}>₪{service.price}</p>
-                            <button style={{ width: '100%', padding: '10px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>
+                        <div key={service.id} className="service-card">
+                            <h3 className="mb-2 text-xl font-bold">{service.service_name}</h3>
+                            <p className="text-muted mb-2">ספק: {service.provider_name}</p>
+                            <p className="mb-2">⏱️ {service.duration_minutes} דקות</p>
+                            <p className="text-lg font-bold text-primary mb-4">₪{service.price}</p>
+                            <button className="btn btn-primary" style={{ width: '100%' }}>
                                 הזמן תור
                             </button>
                         </div>

@@ -49,8 +49,8 @@ const MyAppointments = ({ user }) => {
     // אם המשתמש הוא ספק שירות - מציגים את היומן!
     if (isServiceProvider) {
         return (
-            <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-                <h1 style={{ textAlign: 'center' }}>🗓️ יומן הספק שלי</h1>
+            <div className="container">
+                <h1 className="text-center mb-4">🗓️ יומן הספק שלי</h1>
                 {/* מעבירים את המשתמש כ-prop כדי שרכיב היומן יוכל להשתמש ב-ID שלו */}
                 <ProviderCalendar user={user} />
             </div>
@@ -59,34 +59,25 @@ const MyAppointments = ({ user }) => {
 
     // אם הוא לקוח, ממשיכים בלוגיקה הקיימת (רשימת תורים)
     return (
-        <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-            <h2 style={{ textAlign: 'center' }}>📅 התורים שלי</h2>
+        <div className="container" style={{ maxWidth: '800px' }}>
+            <h2 className="text-center mb-4">📅 התורים שלי</h2>
 
             {isLoading ? (
-                <p style={{ textAlign: 'center' }}>טוען תורים...</p>
+                <p className="text-center">טוען תורים...</p>
             ) : appointments.length === 0 ? (
-                <p style={{ textAlign: 'center', marginTop: '20px', padding: '15px', backgroundColor: '#f0f8ff', borderRadius: '8px' }}>אין לך תורים קרובים. בוא לקבוע!</p>
+                <p className="text-center p-4 bg-surface rounded text-muted">אין לך תורים קרובים. בוא לקבוע!</p>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div className="flex flex-col gap-4">
                     {appointments.map(appt => (
-                        <div key={appt.id} style={{
-                            borderRight: '5px solid #4CAF50',
-                            backgroundColor: '#f9f9f9',
-                            padding: '15px',
-                            borderRadius: '8px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
+                        <div key={appt.id} className="card flex justify-between items-center" style={{ borderRight: '4px solid var(--primary)' }}>
                             <div>
-                                <h3 style={{ margin: '0 0 5px 0' }}>{appt.service_name}</h3>
-                                <p style={{ margin: 0, color: '#666' }}>אצל: {appt.provider_name}</p>
+                                <h3 className="mb-2 font-bold">{appt.service_name}</h3>
+                                <p className="text-muted m-0">אצל: {appt.provider_name}</p>
                             </div>
 
-                            <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontWeight: 'bold', fontSize: '1.1em' }}>{formatTime(appt.start_time)}</div>
-                                <div style={{ fontSize: '0.9em', color: '#555' }}>{formatDate(appt.start_time)}</div>
+                            <div className="text-left">
+                                <div className="font-bold text-lg">{formatTime(appt.start_time)}</div>
+                                <div className="text-sm text-muted">{formatDate(appt.start_time)}</div>
                             </div>
                         </div>
                     ))}
