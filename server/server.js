@@ -470,6 +470,39 @@ app.delete('/api/services/:id', authenticateToken, async (req, res) => {
 });
 
 // --------------------------------------------------------------------
+// [11] Cancel Appointment - ביטול תור (ספק בלבד)
+// --------------------------------------------------------------------
+app.delete('/api/appointments/:id', authenticateToken, async (req, res) => {
+    const appointmentId = req.params.id;
+    const providerId = req.user.userId; // ה-ID של הספק שמחובר
+
+    // בדיקת הרשאות: רק ספק שירות יכול לבטל תורים
+    if (req.user.role !== 'Service Provider') {
+        return res.status(403).json({ msg: 'רק ספק שירות יכול לבטל תורים.' });
+    }
+
+    try {
+        // שלב 1: בדיקה שהתור באמת שייך לספק הזה (אבטחה)
+        // אנחנו בודקים אם קיים תור עם ה-ID הזה וגם ה-provider_id הזה
+        const checkQuery = 'SELECT * FROM appointments WHERE id = $1 AND provider_id = $2';
+        const checkResult = await db.query(checkQuery, [appointmentId, providerId]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ msg: 'התור לא נמצא או שאינו שייך לך.' });
+        }
+
+        // שלב 2: מחיקת התור
+        await db.query('DELETE FROM appointments WHERE id = $1', [appointmentId]);
+
+        res.json({ msg: 'התור בוטל ונמחק בהצלחה.' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאת שרת בביטול התור');
+    }
+});
+
+// --------------------------------------------------------------------
 // [2] הפעלת השרת
 // --------------------------------------------------------------------
 initDB().then(() => {
