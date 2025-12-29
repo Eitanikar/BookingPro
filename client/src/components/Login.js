@@ -60,6 +60,15 @@ const Login = ({ onLoginSuccess }) => {
                 <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
                     התחבר
                 </button>
+                <div className="text-center mt-3">
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent('switchView', { detail: 'forgot-password' }))}
+                        className="btn btn-link text-decoration-none"
+                    >
+                        שכחתי סיסמה?
+                    </button>
+                </div>
             </form>
             {message && <p className="text-center mt-4" style={{ color: '#f43f5e' }}>{message}</p>}
         </div>

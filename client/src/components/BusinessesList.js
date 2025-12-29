@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import BusinessCard from './BusinessCard';
 
-const BusinessesList = () => {
+const BusinessesList = ({ onSelectBusiness }) => {
     const [businesses, setBusinesses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -29,11 +29,15 @@ const BusinessesList = () => {
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
             <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>עסקים מומלצים</h2>
-            
+
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px' }}>
                 {businesses.length > 0 ? (
                     businesses.map(business => (
-                        <BusinessCard key={business.id} business={business} />
+                        <BusinessCard
+                            key={business.id}
+                            business={business}
+                            onSelect={onSelectBusiness} // <--- Pass the handler
+                        />
                     ))
                 ) : (
                     <p>לא נמצאו עסקים במערכת.</p>

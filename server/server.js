@@ -1,9 +1,10 @@
 // קובץ: BookingPro/server/server.js - קוד מתוקן
 const express = require('express');
+const crypto = require('crypto'); // Built-in module for token generation
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const db = require('./db'); 
+const db = require('./db');
 const initDB = require('./initDB');
 
 // --- הגדרות השרת והסודות ---
@@ -33,7 +34,7 @@ const authenticateToken = (req, res, next) => {
         req.user = userPayload;
         next(); // ממשיכים לפונקציה הבאה (הנתיב עצמו)
     });
-}; 
+};
 
 // --------------------------------------------------------------------
 // [1] User Authentication Route (Registration - Core Logic)
@@ -83,7 +84,7 @@ app.post('/api/login', async (req, res) => {
     try {
         // 1. בדיקה אם המשתמש קיים ב-DB
         const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-        
+
         if (result.rows.length === 0) {
             return res.status(400).json({ msg: 'פרטים שגויים (משתמש לא נמצא)' });
         }
@@ -92,7 +93,7 @@ app.post('/api/login', async (req, res) => {
 
         // 2. בדיקת התאמת סיסמה (השוואה בין מה שהוקלד למה שמוצפן ב-DB)
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        
+
         if (!isMatch) {
             return res.status(400).json({ msg: 'פרטים שגויים (סיסמה לא תואמת)' });
         }
@@ -107,6 +108,96 @@ app.post('/api/login', async (req, res) => {
         res.status(500).send('שגיאת שרת');
     }
 });
+
+// --------------------------------------------------------------------
+// [2.5] Forgot Password Route - בקשת איפוס סיסמה
+// --------------------------------------------------------------------
+app.post('/api/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ msg: 'נא למלא כתובת אימייל' });
+    }
+
+    try {
+        // 1. בדיקה שהמשתמש קיים
+        const userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (userRes.rows.length === 0) {
+            // מבחינת אבטחה עדיף להחזיר הודעה כללית, אבל לצורך הפיתוח נחזיר הודעה ספציפית
+            return res.status(404).json({ msg: 'משתמש לא נמצא' });
+        }
+
+        const user = userRes.rows[0];
+
+        // 2. יצירת טוקן רנדומלי
+        const resetToken = crypto.randomBytes(20).toString('hex');
+
+        // 3. שמירת הטוקן וזמן התפוגה (שעה אחת מעכשיו)
+        const passwordExpires = Date.now() + 3600000; // 1 hour
+
+        await db.query(
+            'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE id = $3',
+            [resetToken, passwordExpires, user.id]
+        );
+
+        // 4. סימולציה: הדפסת הלינק לקונסול (במקום שליחת מייל)
+        const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+        console.log('----------------------------------------------------');
+        console.log(`Password Reset Link for ${email}:`);
+        console.log(resetUrl);
+        console.log('----------------------------------------------------');
+
+        res.json({ msg: 'הוראות לאיפוס סיסמה נשלחו לכתובת המייל שלך (בדוק בקונסול השרת)' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאת שרת');
+    }
+});
+
+// --------------------------------------------------------------------
+// [2.6] Reset Password Route - ביצוע האיפוס עם הטוקן
+// --------------------------------------------------------------------
+app.post('/api/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+        return res.status(400).json({ msg: 'חסרים נתונים' });
+    }
+
+    try {
+        // 1. חיפוש משתמש עם הטוקן הזה ושהתוקף שלו לא פג
+        const query = `
+            SELECT * FROM users 
+            WHERE reset_password_token = $1 
+            AND reset_password_expires > $2
+        `;
+        // Date.now() returns number, comparison works if column is BIGINT
+        const userRes = await db.query(query, [token, Date.now()]);
+
+        if (userRes.rows.length === 0) {
+            return res.status(400).json({ msg: 'הטוקן אינו תקין או שפג תוקפו' });
+        }
+
+        const user = userRes.rows[0];
+
+        // 2. הצפנת הסיסמה החדשה
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(newPassword, salt);
+
+        // 3. עדכון הסיסמה וניקוי הטוקן
+        await db.query(
+            'UPDATE users SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE id = $2',
+            [password_hash, user.id]
+        );
+
+        res.json({ msg: 'הסיסמה שונתה בהצלחה! כעת ניתן להתחבר.' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאת שרת');
+    }
+});
+
 
 // --------------------------------------------------------------------
 // [4] Appointments Route - קבלת התורים של המשתמש
@@ -141,33 +232,119 @@ app.get('/api/my-appointments', async (req, res) => {
 // --------------------------------------------------------------------
 // [5] Availability Route - בדיקת שעות פנויות (לוגיקה בסיסית)
 // --------------------------------------------------------------------
-app.get('/api/availability', async (req, res) => {
-    const { providerId, date } = req.query; // מקבלים ID של ספק ותאריך
+// --------------------------------------------------------------------
+// [5] Availability Route - בדיקת שעות פנויות (לוגיקה מתקדמת)
+// --------------------------------------------------------------------
+
+// 1. הוספת זמינות (ספק)
+app.post('/api/provider/availability', authenticateToken, async (req, res) => {
+    const { start, end } = req.body;
+    const providerId = req.user.userId;
 
     try {
-        // 1. מביאים את כל התורים הקיימים לאותו ספק באותו יום
+        // מחיקת חפיפות (פשוט מוחקים כל מה שבטווח ומכניסים חדש - אפשר לשכלל)
+        // לצורך הפשטות נניח שהמשתמש שולח Block נקי
         const query = `
-            SELECT start_time FROM appointments 
+            INSERT INTO provider_availability (provider_id, start_time, end_time)
+            VALUES ($1, $2, $3)
+            RETURNING id, start_time, end_time
+        `;
+        const result = await db.query(query, [providerId, start, end]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בשמירת הזמינות');
+    }
+});
+
+// 2. קבלת זמינות (ספק - לצורך תצוגה בלוח השנה שלו)
+app.get('/api/provider/availability/:providerId', async (req, res) => {
+    const { providerId } = req.params;
+    try {
+        const query = `SELECT id, start_time, end_time FROM provider_availability WHERE provider_id = $1`;
+        const result = await db.query(query, [providerId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בטעינת הזמינות');
+    }
+});
+
+// 3. מחיקת זמינות
+app.delete('/api/provider/availability/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query('DELETE FROM provider_availability WHERE id = $1', [id]);
+        res.json({ msg: 'נמחק בהצלחה' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה במחיקה');
+    }
+});
+
+// 4. בדיקת שעות פנויות (לקוח)
+app.get('/api/availability', async (req, res) => {
+    const { providerId, date } = req.query; // date format: YYYY-MM-DD
+
+    try {
+        // א. שליפת הטווחים שהספק הגדיר כזמינים באותו יום
+        // אנו בודקים האם הטווח נופל בתוך היום המבוקש
+        const availQuery = `
+            SELECT start_time, end_time 
+            FROM provider_availability 
             WHERE provider_id = $1 
             AND DATE(start_time) = $2
         `;
-        const takenSlots = await db.query(query, [providerId, date]);
-        
-        // המרה לשעות פשוטות (למשל "10:00") לצורך השוואה
-        const takenTimes = takenSlots.rows.map(row => {
-            const d = new Date(row.start_time);
-            return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        const availResult = await db.query(availQuery, [providerId, date]);
+        const availRanges = availResult.rows;
+
+        if (availRanges.length === 0) {
+            return res.json([]); // אין זמינות בכלל ביום הזה
+        }
+
+        // ב. שליפת התורים הקיימים באותו יום
+        const apptQuery = `
+            SELECT start_time, end_time 
+            FROM appointments 
+            WHERE provider_id = $1 
+            AND DATE(start_time) = $2
+        `;
+        const apptResult = await db.query(apptQuery, [providerId, date]);
+        const appointments = apptResult.rows;
+
+        // ג. חישוב סלוטים פנויים
+        // נחלק את הטווחים הזמינים למרווחים של 30 דקות (או לפי אורך השירות, כרגע נניח 30 דק')
+        const slots = [];
+
+        availRanges.forEach(range => {
+            let current = new Date(range.start_time);
+            const end = new Date(range.end_time);
+
+            while (current < end) {
+                // בדיקה אם הסלוט הזה מתנגש עם תור קיים
+                const slotEnd = new Date(current.getTime() + 30 * 60000); // +30 דקות
+
+                const isTaken = appointments.some(appt => {
+                    const apptStart = new Date(appt.start_time);
+                    const apptEnd = new Date(appt.end_time);
+                    // חפיפה בין זמנים
+                    return (current < apptEnd && slotEnd > apptStart);
+                });
+
+                if (!isTaken) {
+                    // הוספה לרשימה (פורמט HH:MM)
+                    slots.push(current.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }));
+                }
+
+                // התקדמות ב-30 דקות
+                current = slotEnd;
+            }
         });
 
-        // 2. יוצרים רשימת שעות עבודה קבועות (9:00 עד 17:00)
-        const allSlots = [
-            "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
-        ];
+        // מיון וסינון כפילויות אם יש
+        const uniqueSlots = [...new Set(slots)].sort();
+        res.json(uniqueSlots);
 
-        // 3. מסננים: מחזירים רק מה שלא תפוס
-        const availableSlots = allSlots.filter(slot => !takenTimes.includes(slot));
-
-        res.json(availableSlots);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('שגיאת שרת');
@@ -183,7 +360,7 @@ app.post('/api/book', async (req, res) => {
     try {
         // יצירת אובייקט תאריך מלא (Date + Time)
         // הערה: בפרויקט אמיתי עובדים עם ספריות כמו moment/date-fns, כאן נעשה פשוט
-        const startTime = new Date(`${date}T${time}:00`); 
+        const startTime = new Date(`${date}T${time}:00`);
         const endTime = new Date(startTime.getTime() + 30 * 60000); // מוסיף 30 דקות אוטומטית
 
         const query = `
@@ -191,7 +368,7 @@ app.post('/api/book', async (req, res) => {
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id
         `;
-        
+
         await db.query(query, [clientId, providerId, serviceId, startTime, endTime]);
         res.json({ msg: 'התור נקבע בהצלחה!' });
 
@@ -243,7 +420,7 @@ app.post('/api/business-profile', async (req, res) => {
             RETURNING *
         `;
         const result = await db.query(query, [userId, businessName, address, phone, description]);
-        
+
         res.json({ msg: 'הפרופיל העסקי נוצר בהצלחה!', business: result.rows[0] });
 
     } catch (err) {
@@ -393,7 +570,7 @@ app.get('/api/businesses', async (req, res) => {
             FROM businesses b
             ORDER BY b.id DESC
         `;
-        
+
         const result = await db.query(query);
         res.json(result.rows);
     } catch (err) {
@@ -423,7 +600,7 @@ app.post('/api/services', authenticateToken, async (req, res) => {
             RETURNING *
         `;
         const result = await db.query(query, [providerId, name, description, price, duration]);
-        
+
         res.json(result.rows[0]); // מחזירים את השירות החדש שנוצר
     } catch (err) {
         console.error(err.message);
@@ -436,7 +613,7 @@ app.get('/api/services/provider/:providerId', async (req, res) => {
     const { providerId } = req.params;
     try {
         const result = await db.query(
-            'SELECT * FROM services WHERE provider_id = $1 ORDER BY id ASC', 
+            'SELECT * FROM services WHERE provider_id = $1 ORDER BY id ASC',
             [providerId]
         );
         res.json(result.rows);

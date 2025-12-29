@@ -5,11 +5,38 @@ import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
 import BusinessProfileSetup from './components/BusinessProfileSetup';
 import BusinessesList from './components/BusinessesList'; // <--- [1] הוספה חדשה
+import BusinessProfileClientView from './components/BusinessProfileClientView'; // <--- [NEW]
+import BookingDateSelection from './components/BookingDateSelection'; // <--- [NEW]
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('home');
+  const [resetToken, setResetToken] = useState(null); // הטוקן לאיפוס סיסמה
+
+  // States for Booking Flow
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
+
+  // בדיקת URL כדי לזהות כניסה מקישור לאיפוס סיסמה
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/reset-password/')) {
+      const token = path.split('/')[2];
+      if (token) {
+        setResetToken(token);
+        setView('reset-password');
+      }
+    }
+
+    // האזנה לאירוע מעבר לדף "שכחתי סיסמה" מתוך הקומפוננטה Login
+    const handleSwitchView = (e) => setView(e.detail);
+    window.addEventListener('switchView', handleSwitchView);
+    return () => window.removeEventListener('switchView', handleSwitchView);
+
+  }, []);
 
   const handleLoginSuccess = (userData, token) => {
     setUser(userData);
@@ -143,10 +170,59 @@ function App() {
           />
         )}
 
+        {/* --- [הוספה] דפי איפוס סיסמה --- */}
+        {view === 'forgot-password' && (
+          <div className="animate-fade-in">
+            <ForgotPassword onBack={() => setView('login')} />
+          </div>
+        )}
+
+        {view === 'reset-password' && (
+          <div className="animate-fade-in">
+            <ResetPassword
+              token={resetToken}
+              onResetSuccess={() => {
+                setView('login');
+                window.history.pushState({}, '', '/'); // ניקוי ה-URL
+              }}
+            />
+          </div>
+        )}
+
+        {/* --- [NEW] Business Profile View --- */}
+        {/* --- [NEW] Business Profile View --- */}
+        {view === 'business-profile' && selectedBusiness && (
+          <BusinessProfileClientView
+            business={selectedBusiness}
+            onBack={() => setView('businesses')}
+            onSelectService={(service) => {
+              setSelectedService(service);
+              setView('booking-date');
+            }}
+          />
+        )}
+
+        {/* --- [NEW] Booking Date Selection View (Calendar) --- */}
+        {view === 'booking-date' && selectedService && selectedBusiness && (
+          <BookingDateSelection
+            service={selectedService}
+            business={selectedBusiness}
+            user={user}
+            onBack={() => setView('business-profile')}
+            onBookingSuccess={() => {
+              alert('🎉 התור נקבע בהצלחה!');
+              setView('my-appointments');
+            }}
+          />
+        )}
+
         {/* --- [3] דף רשימת עסקים --- */}
         {view === 'businesses' && (
           <div className="container animate-fade-in">
-            <BusinessesList />
+            <BusinessesList onSelectBusiness={(biz) => {
+              setSelectedBusiness(biz);
+              setView('business-profile');
+            }} />
           </div>
         )}
 

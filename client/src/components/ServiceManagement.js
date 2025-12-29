@@ -48,18 +48,26 @@ const ServiceManagement = ({ user }) => {
                 body: JSON.stringify(formData)
             });
 
-            const data = await res.json();
+            let data;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                // אם השרת החזיר טקסט (כמו בשגיאת 500), נשתמש בו כהודעה
+                data = { msg: text || res.statusText };
+            }
 
             if (res.ok) {
                 setMessage('השירות נוסף בהצלחה!');
                 setFormData({ name: '', description: '', price: '', duration: '' }); // איפוס הטופס
                 fetchServices(); // רענון הרשימה
             } else {
-                setMessage('שגיאה: ' + data.msg);
+                setMessage('שגיאה: ' + (data.msg || 'אירעה שגיאה בלתי צפויה'));
             }
         } catch (err) {
             console.error('Error adding service:', err);
-            setMessage('שגיאה בתקשורת עם השרת');
+            setMessage('שגיאה בתקשורת עם השרת: ' + err.message);
         }
     };
 
@@ -88,28 +96,28 @@ const ServiceManagement = ({ user }) => {
     return (
         <div style={{ maxWidth: '600px', margin: '20px auto', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#fff' }}>
             <h2 style={{ textAlign: 'center' }}>ניהול שירותים ומחירון</h2>
-            
+
             {/* טופס הוספה */}
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px' }}>
-                <input 
-                    type="text" name="name" placeholder="שם השירות (למשל: תספורת)" 
-                    value={formData.name} onChange={handleInputChange} required 
+                <input
+                    type="text" name="name" placeholder="שם השירות (למשל: תספורת)"
+                    value={formData.name} onChange={handleInputChange} required
                     style={{ padding: '8px' }}
                 />
-                <input 
-                    type="text" name="description" placeholder="תיאור קצר" 
-                    value={formData.description} onChange={handleInputChange} 
+                <input
+                    type="text" name="description" placeholder="תיאור קצר"
+                    value={formData.description} onChange={handleInputChange}
                     style={{ padding: '8px' }}
                 />
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <input 
-                        type="number" name="price" placeholder="מחיר (₪)" 
-                        value={formData.price} onChange={handleInputChange} required 
+                    <input
+                        type="number" name="price" placeholder="מחיר (₪)"
+                        value={formData.price} onChange={handleInputChange} required
                         style={{ padding: '8px', flex: 1 }}
                     />
-                    <input 
-                        type="number" name="duration" placeholder="משך זמן (דקות)" 
-                        value={formData.duration} onChange={handleInputChange} required 
+                    <input
+                        type="number" name="duration" placeholder="משך זמן (דקות)"
+                        value={formData.duration} onChange={handleInputChange} required
                         style={{ padding: '8px', flex: 1 }}
                     />
                 </div>
@@ -134,7 +142,7 @@ const ServiceManagement = ({ user }) => {
                                 <strong>{service.service_name}</strong> - ₪{service.price} ({service.duration_minutes} דק')
                                 <div style={{ fontSize: '0.85em', color: '#666' }}>{service.description}</div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => handleDelete(service.id)}
                                 style={{ backgroundColor: '#ff4d4d', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}
                             >

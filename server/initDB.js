@@ -33,6 +33,13 @@ const initDB = async () => {
             );
         `);
 
+        // 4. הוספת עמודות לאיפוס סיסמה בטבלת users
+        await db.query(`
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS reset_password_expires BIGINT; 
+        `);
+
         console.log('��� ������� ����: ����� appointments ������ ������.');
 
     } catch (err) {
