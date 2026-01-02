@@ -1,7 +1,8 @@
 import React from 'react';
 import './Navigation.css';
 
-const Sidebar = ({ isOpen, onClose, user, setView, handleLogout }) => {
+// [1] הוספנו את onMyBusinessClick
+const Sidebar = ({ isOpen, onClose, user, setView, handleLogout, onMyBusinessClick }) => {
 
     const handleLinkClick = (viewName) => {
         setView(viewName);
@@ -48,9 +49,20 @@ const Sidebar = ({ isOpen, onClose, user, setView, handleLogout }) => {
                         </button>
 
                         {user.role === 'Service Provider' && (
-                            <button className="nav-link" onClick={() => handleLinkClick('business-setup')}>
-                                הגדרת עסק
-                            </button>
+                            <>
+                                {/* [2] הכפתור החדש - לוחצים עליו והוא מפעיל את הפונקציה וסוגר את התפריט */}
+                                <button 
+                                    className="nav-link" 
+                                    onClick={() => { onMyBusinessClick(); onClose(); }}
+                                    style={{ fontWeight: 'bold', color: '#3f51b5' }}
+                                >
+                                    🏠 העסק שלי
+                                </button>
+
+                                <button className="nav-link" onClick={() => handleLinkClick('business-setup')}>
+                                    ⚙️ הגדרת עסק
+                                </button>
+                            </>
                         )}
                     </nav>
                 </div>

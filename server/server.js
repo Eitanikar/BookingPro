@@ -731,6 +731,41 @@ app.get('/api/calendar/provider/:providerId', authenticateToken, async (req, res
 
 
 // --------------------------------------------------------------------
+// [7.5] Update Business Profile - עדכון פרטי עסק קיים
+// --------------------------------------------------------------------
+app.put('/api/business-profile', authenticateToken, async (req, res) => {
+    // אנחנו מצפים לקבל את השדות האלו מהטופס בצד לקוח
+    const { businessName, address, phone, description } = req.body;
+    
+    // את ה-ID אנחנו לוקחים מהטוקן (כדי שרק בעל העסק יוכל לערוך את עצמו)
+    const userId = req.user.userId;
+
+    try {
+        const query = `
+            UPDATE businesses 
+            SET business_name = $1, address = $2, phone = $3, description = $4
+            WHERE user_id = $5
+            RETURNING *
+        `;
+        
+        // הרצת השאילתה
+        const result = await db.query(query, [businessName, address, phone, description, userId]);
+
+        // בדיקה אם בכלל היה מה לעדכן
+        if (result.rows.length === 0) {
+            return res.status(404).json({ msg: 'לא נמצא פרופיל עסק למשתמש זה (יש ליצור פרופיל קודם)' });
+        }
+
+        res.json({ msg: 'העסק עודכן בהצלחה', business: result.rows[0] });
+
+    } catch (err) {
+        console.error('Update error:', err.message);
+        res.status(500).send('שגיאה בעדכון פרטי העסק');
+    }
+});
+
+
+// --------------------------------------------------------------------
 // [8] Gallery Management - ניהול גלריה
 // --------------------------------------------------------------------
 
