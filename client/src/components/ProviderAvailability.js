@@ -3,6 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import heLocale from '@fullcalendar/core/locales/he';
+import './Calendar.css'; // Modern styles override
 
 const ProviderAvailability = ({ user }) => {
     const [events, setEvents] = useState([]);
@@ -105,7 +106,13 @@ const ProviderAvailability = ({ user }) => {
             <h3 className="text-center mb-4">ניהול יומן זמינות</h3>
             <p className="text-center mb-4 text-muted">גרור את העכבר על גבי היומן כדי לסמן שעות שבהן אתה רוצה לקבל לקוחות.</p>
 
-            {msg && <p className="text-center text-success font-bold">{msg}</p>}
+            {msg && <p className="text-center text-success font-bold mb-3">{msg}</p>}
+
+            {events.length === 0 && (
+                <div className="alert alert-info text-center mb-4">
+                    ⚠️ עדיין לא הגדרת אף זמינות. לקוחות לא יוכלו להזמין תורים עד שתגדיר זמינות!
+                </div>
+            )}
 
             <div style={{ height: '600px', backgroundColor: 'white', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                 <FullCalendar
@@ -118,15 +125,17 @@ const ProviderAvailability = ({ user }) => {
                         center: 'title',
                         right: 'timeGridWeek,timeGridDay'
                     }}
-                    slotMinTime="08:00:00"
-                    slotMaxTime="22:00:00"
+                    slotMinTime="07:00:00"
+                    slotMaxTime="23:00:00"
+                    slotDuration="00:30:00"
+                    slotLabelInterval="00:30:00"
                     allDaySlot={false}
                     selectable={true}
                     selectMirror={true}
                     weekends={true}
-                    events={events} // טעינת האירועים מה-State
-                    select={handleSelect} // הוספת זמינות בגרירה
-                    eventClick={handleEventClick} // מחיקת זמינות בלחיצה
+                    events={events}
+                    select={handleSelect}
+                    eventClick={handleEventClick}
                     height="100%"
                 />
             </div>

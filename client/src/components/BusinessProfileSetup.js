@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ServiceManagement from './ServiceManagement';
-import ProviderAvailability from './ProviderAvailability'; // <--- Import // <--- Import
+import ProviderAvailabilitySetup from './ProviderAvailabilitySetup';
 
 const BusinessProfileSetup = ({ user, onSaveSuccess }) => {
     // --- State לפרטי העסק ---
@@ -92,13 +92,49 @@ const BusinessProfileSetup = ({ user, onSaveSuccess }) => {
             });
 
             if (res.ok) {
-                setMsg('התמונה הועלתה בהצלחה!');
+                setMsg('✅ התמונה הועלתה בהצלחה!');
+                setTimeout(() => setMsg(''), 3000);
                 fetchPhotos(); // רענון הגלריה
             } else {
-                setMsg('שגיאה בהעלאת התמונה');
+                setMsg('❌ שגיאה בהעלאת התמונה');
             }
         } catch (err) {
-            setMsg('שגיאה בהעלאת התמונה');
+            setMsg('❌ שגיאה בהעלאת התמונה');
+        }
+    };
+
+    // פונקציה למחיקת תמונה
+    const handleDeletePhoto = async (photoId) => {
+        alert('DEBUG: Clicked Delete Photo, ID: ' + photoId);
+        console.log('DEBUG: handleDeletePhoto triggered', photoId);
+
+        if (!window.confirm('האם אתה בטוח שברצונך למחוק את התמונה?')) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/photos/${photoId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (res.ok) {
+                setMsg('✅ התמונה נמחקה בהצלחה!');
+                alert('התמונה נמחקה בהצלחה!');
+                setTimeout(() => setMsg(''), 3000);
+                fetchPhotos(); // רענון הגלריה
+            } else {
+                const data = await res.json();
+                const errorMsg = data.msg || 'בעיה בשרת';
+                setMsg('❌ שגיאה במחיקה: ' + errorMsg);
+                alert('שגיאה במחיקה: ' + errorMsg);
+            }
+        } catch (err) {
+            setMsg('❌ שגיאת תקשורת');
+            alert('שגיאת תקשורת: ' + err.message);
         }
     };
 
@@ -172,14 +208,64 @@ const BusinessProfileSetup = ({ user, onSaveSuccess }) => {
                 />
 
                 {/* רשת תמונות */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
                     {photos.map(photo => (
-                        <div key={photo.id} style={{ height: '100px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div
+                            key={photo.id}
+                            style={{
+                                position: 'relative',
+                                height: '120px',
+                                border: '1px solid #ddd',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                backgroundColor: '#f5f5f5'
+                            }}
+                        >
                             <img
                                 src={photo.image_url}
                                 alt="Business"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                }}
                             />
+                            {/* כפתור מחיקה */}
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!photo.id) {
+                                        alert('Error: Photo ID is missing');
+                                        return;
+                                    }
+                                    handleDeletePhoto(photo.id);
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '28px',
+                                    height: '28px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'background-color 0.2s',
+                                    zIndex: 100
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(220, 53, 69, 1)'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(220, 53, 69, 0.9)'}
+                                title="מחיקה"
+                            >
+                                ✕
+                            </button>
                         </div>
                     ))}
                 </div>
@@ -193,9 +279,9 @@ const BusinessProfileSetup = ({ user, onSaveSuccess }) => {
             </div>
 
             {/* --- חלק ד: ניהול יומן זמינות --- */}
-            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginTop: '30px' }}>4. יומן זמינות</h3>
+            <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginTop: '30px' }}>4. שעות עבודה</h3>
             <div style={{ marginBottom: '30px' }}>
-                <ProviderAvailability user={user} />
+                <ProviderAvailabilitySetup user={user} />
             </div>
 
             {/* הודעות מערכת */}

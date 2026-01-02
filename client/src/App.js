@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Register from './components/Register';
 import Login from './components/Login';
-import ServicesList from './components/ServicesList';
 import MyAppointments from './components/MyAppointments';
 import BusinessProfileSetup from './components/BusinessProfileSetup';
 import BusinessesList from './components/BusinessesList'; // <--- [1] הוספה חדשה
@@ -9,12 +8,17 @@ import BusinessProfileClientView from './components/BusinessProfileClientView'; 
 import BookingDateSelection from './components/BookingDateSelection'; // <--- [NEW]
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('home');
-  const [resetToken, setResetToken] = useState(null); // הטוקן לאיפוס סיסמה
+  const [resetToken, setResetToken] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State for Sidebar
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   // States for Booking Flow
   const [selectedBusiness, setSelectedBusiness] = useState(null);
@@ -51,60 +55,26 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <div className={`App ${isSidebarOpen ? 'sidebar-open' : ''}`}>
 
       {/* --- Header / Navbar --- */}
-      <header className="app-header">
-        <h1
-          onClick={() => setView('home')}
-          className="brand-logo"
-          title="חזור לדף הבית"
-        >
-          BookingPro
-        </h1>
+      {/* --- Header / Navbar (NEW) --- */}
+      <Navbar
+        user={user}
+        toggleSidebar={toggleSidebar}
+        setView={setView}
+      />
 
-        <div>
-          {user ? (
-            <div className="nav-group">
-              <span className="text-white font-bold">שלום, {user.name}</span>
-
-              {/* --- [2] כפתור חדש לרשימת עסקים --- */}
-              <button
-                onClick={() => setView('businesses')}
-                className="btn btn-info"
-              >
-                🏢 רשימת עסקים
-              </button>
-
-              {/* כפתור לנותני שירות בלבד */}
-              {user.role === 'Service Provider' && (
-                <button
-                  onClick={() => setView('business-setup')}
-                  className="btn btn-warning"
-                >
-                  ⚙️ הגדרת עסק
-                </button>
-              )}
-
-              <button
-                onClick={() => setView('my-appointments')}
-                className="btn btn-success"
-              >
-                📅 התורים שלי
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="btn btn-danger"
-              >
-                יציאה
-              </button>
-            </div>
-          ) : (
-            null
-          )}
-        </div>
-      </header>
+      {/* --- Sidebar (NEW) --- */}
+      {user && (
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          user={user}
+          setView={setView}
+          handleLogout={handleLogout}
+        />
+      )}
 
       {/* --- Main Content --- */}
       <main className="app-main">
@@ -118,13 +88,30 @@ function App() {
 
             {user ? (
               <div className="animate-fade-in">
-                <p className="text-center text-muted mb-4">בחרו שירות והזמינו תור בקלות ובמהירות</p>
-                <ServicesList user={user} />
+                <p className="text-center text-muted mb-4">בחרו מה אתם רוצים לעשות</p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                  gap: '20px',
+                  maxWidth: '800px',
+                  margin: '0 auto'
+                }}>
+                  <div className="card" style={{ cursor: 'pointer', padding: '30px', textAlign: 'center', transition: 'transform 0.2s' }} onClick={() => setView('businesses')} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
+                    <h3>דפדפו בעסקים</h3>
+                    <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
+                  </div>
+                  <div className="card" style={{ cursor: 'pointer', padding: '30px', textAlign: 'center', transition: 'transform 0.2s' }} onClick={() => setView('my-appointments')} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📅</div>
+                    <h3>התורים שלי</h3>
+                    <p className="text-muted">ראה את התורים שלך</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="card text-center animate-fade-in" style={{ maxWidth: '600px', margin: '0 auto' }}>
                 <h3>🔒 התוכן זמין למשתמשים רשומים בלבד</h3>
-                <p className="text-muted">כדי לצפות במחירון השירותים ולקבוע תור, עליך להתחבר למערכת.</p>
+                <p className="text-muted">כדי להתחיל, עליך להתחבר למערכת.</p>
                 <div className="mt-4 flex justify-center gap-4">
                   <button onClick={() => setView('login')} className="btn btn-success">
                     כניסה למערכת

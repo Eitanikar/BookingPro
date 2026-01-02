@@ -202,26 +202,50 @@ app.post('/api/reset-password', async (req, res) => {
 // --------------------------------------------------------------------
 // [4] Appointments Route - קבלת התורים של המשתמש
 // --------------------------------------------------------------------
-app.get('/api/my-appointments', async (req, res) => {
-    const userId = req.headers['user-id']; // נשלח את ה-ID מהלקוח
-
-    if (!userId) return res.status(400).json({ msg: 'לא זוהה משתמש' });
+app.get('/api/my-appointments', authenticateToken, async (req, res) => {
+    const userId = req.user.userId;
+    const role = req.user.role;
 
     try {
-        const query = `
-            SELECT 
-                a.id, 
-                s.service_name, 
-                u.name as provider_name, 
-                a.start_time, 
-                a.status 
-            FROM appointments a
-            JOIN services s ON a.service_id = s.id
-            JOIN users u ON a.provider_id = u.id
-            WHERE a.client_id = $1
-            ORDER BY a.start_time ASC
-        `;
-        const result = await db.query(query, [userId]);
+        let query;
+        let params = [userId];
+
+        if (role === 'Service Provider') {
+            // For providers: show appointments where they are the provider
+            // We join with users twice: u1 for provider info (not really needed but consistent), u2 for client name lookup if needed
+            query = `
+                SELECT 
+                    a.id, 
+                    s.service_name, 
+                    COALESCE(u.name, a.client_name) as client_name, 
+                    a.start_time, 
+                    a.status,
+                    s.price
+                FROM appointments a
+                JOIN services s ON a.service_id = s.id
+                LEFT JOIN users u ON a.client_id = u.id
+                WHERE a.provider_id = $1
+                ORDER BY a.start_time DESC
+            `;
+        } else {
+            // For clients: show appointments where they are the client
+            query = `
+                SELECT 
+                    a.id, 
+                    s.service_name, 
+                    u.name as provider_name, 
+                    a.start_time, 
+                    a.status, 
+                    s.price
+                FROM appointments a
+                JOIN services s ON a.service_id = s.id
+                JOIN users u ON a.provider_id = u.id
+                WHERE a.client_id = $1
+                ORDER BY a.start_time ASC
+            `;
+        }
+
+        const result = await db.query(query, params);
         res.json(result.rows);
     } catch (err) {
         console.error(err.message);
@@ -282,27 +306,185 @@ app.delete('/api/provider/availability/:id', authenticateToken, async (req, res)
     }
 });
 
+// ====================================================================
+// [5B] NEW Schedule API - שעות עבודה קבועות (ראשון עד שבת)
+// ====================================================================
+
+// GET /api/provider/schedule/:providerId - קבלת לוח שעות
+app.get('/api/provider/schedule/:providerId', async (req, res) => {
+    const { providerId } = req.params;
+    try {
+        const query = `
+            SELECT day_of_week, start_time, end_time 
+            FROM provider_schedule 
+            WHERE provider_id = $1
+            ORDER BY 
+                CASE day_of_week
+                    WHEN 'Sunday' THEN 0
+                    WHEN 'Monday' THEN 1
+                    WHEN 'Tuesday' THEN 2
+                    WHEN 'Wednesday' THEN 3
+                    WHEN 'Thursday' THEN 4
+                    WHEN 'Friday' THEN 5
+                    WHEN 'Saturday' THEN 6
+                END
+        `;
+        const result = await db.query(query, [providerId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Schedule fetch error:', err.message);
+        res.status(500).json({ msg: 'שגיאה בטעינת לוח השעות' });
+    }
+});
+
+// POST /api/provider/schedule - שמירת לוח שעות חדש
+app.post('/api/provider/schedule', authenticateToken, async (req, res) => {
+    const { availability } = req.body;
+    const providerId = req.user.userId;
+
+    // בדיקות יסודיות
+    if (!Array.isArray(availability)) {
+        return res.status(400).json({ msg: 'תבנית שגויה: צפוי array של ימים' });
+    }
+
+    try {
+        // 1. מחיקה של כל השעות הישנות של הספק הזה
+        await db.query('DELETE FROM provider_schedule WHERE provider_id = $1', [providerId]);
+
+        // 2. הכנסה של השעות החדשות
+        for (const day of availability) {
+            const { day_of_week, start_time, end_time } = day;
+
+            // בדיקות
+            if (!day_of_week || !start_time || !end_time) {
+                return res.status(400).json({ msg: 'נא למלא את כל השדות עבור כל יום' });
+            }
+
+            if (start_time >= end_time) {
+                return res.status(400).json({ msg: `שעת ההתחלה חייבת להיות לפני שעת הסיום ביום ${day_of_week}` });
+            }
+
+            const query = `
+                INSERT INTO provider_schedule (provider_id, day_of_week, start_time, end_time)
+                VALUES ($1, $2, $3, $4)
+            `;
+            await db.query(query, [providerId, day_of_week, start_time, end_time]);
+        }
+
+        res.json({ msg: 'לוח השעות נשמר בהצלחה!' });
+    } catch (err) {
+        console.error('Schedule save error:', err.message);
+        res.status(500).json({ msg: 'שגיאה בשמירת לוח השעות: ' + err.message });
+    }
+});
+
+// DELETE /api/provider/schedule/:day - מחיקת יום עבודה
+app.delete('/api/provider/schedule/:day', authenticateToken, async (req, res) => {
+    const { day } = req.params;
+    const providerId = req.user.userId;
+
+    try {
+        await db.query(
+            'DELETE FROM provider_schedule WHERE provider_id = $1 AND day_of_week = $2',
+            [providerId, day]
+        );
+        res.json({ msg: 'יום עבודה נמחק בהצלחה' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ msg: 'שגיאה במחיקה' });
+    }
+});
+
+// --------------------------------------------------------------------
+// [12] Blocked Times Management (חסימת זמנים / חופשות)
+// --------------------------------------------------------------------
+
+// 1. הוספת זמן חסום
+app.post('/api/blocked-times', authenticateToken, async (req, res) => {
+    const { start, end, reason } = req.body;
+    const providerId = req.user.userId;
+
+    if (!start || !end) {
+        return res.status(400).json({ msg: 'נא למלא תאריך התחלה וסיום' });
+    }
+
+    try {
+        const query = `
+            INSERT INTO blocked_times (provider_id, start_time, end_time, reason)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+        `;
+        const result = await db.query(query, [providerId, start, end, reason]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בשמירת החסימה');
+    }
+});
+
+// 2. מחיקת זמן חסום
+app.delete('/api/blocked-times/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const providerId = req.user.userId;
+
+    try {
+        const result = await db.query(
+            'DELETE FROM blocked_times WHERE id = $1 AND provider_id = $2 RETURNING *',
+            [id, providerId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ msg: 'החסימה לא נמצאה או שאין הרשאה' });
+        }
+        res.json({ msg: 'החסימה הוסרה' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה במחיקת החסימה');
+    }
+});
+
+// 3. שליפת זמנים חסומים (לצורך הצגה ביומן) - הועבר לתוך ה-Calendar Route אבל נשאיר גם כאן אם צריך
+app.get('/api/blocked-times/:providerId', async (req, res) => {
+    const { providerId } = req.params;
+    try {
+        const result = await db.query(
+            'SELECT * FROM blocked_times WHERE provider_id = $1 ORDER BY start_time ASC',
+            [providerId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בטעינת חסימות');
+    }
+});
+
 // 4. בדיקת שעות פנויות (לקוח)
 app.get('/api/availability', async (req, res) => {
     const { providerId, date } = req.query; // date format: YYYY-MM-DD
 
     try {
-        // א. שליפת הטווחים שהספק הגדיר כזמינים באותו יום
-        // אנו בודקים האם הטווח נופל בתוך היום המבוקש
-        const availQuery = `
-            SELECT start_time, end_time 
-            FROM provider_availability 
-            WHERE provider_id = $1 
-            AND DATE(start_time) = $2
-        `;
-        const availResult = await db.query(availQuery, [providerId, date]);
-        const availRanges = availResult.rows;
+        // 1. פרסום התאריך לעדיפות לבודקה
+        const dateObj = new Date(date);
+        const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Monday"
 
-        if (availRanges.length === 0) {
-            return res.json([]); // אין זמינות בכלל ביום הזה
+        // 2. בדיקה שהביום הזה בעל העסק עובד
+        const scheduleQuery = `
+            SELECT start_time, end_time 
+            FROM provider_schedule 
+            WHERE provider_id = $1 
+            AND day_of_week = $2
+        `;
+        const scheduleResult = await db.query(scheduleQuery, [providerId, dayOfWeek]);
+        
+        if (scheduleResult.rows.length === 0) {
+            return res.json([]); // בעל העסק לא עובד ביום הזה
         }
 
-        // ב. שליפת התורים הקיימים באותו יום
+        const scheduleRange = scheduleResult.rows[0];
+        const [schedStartHour, schedStartMin] = scheduleRange.start_time.split(':').map(Number);
+        const [schedEndHour, schedEndMin] = scheduleRange.end_time.split(':').map(Number);
+
+        // 3. שליפת התורים הקיימים באותו יום
         const apptQuery = `
             SELECT start_time, end_time 
             FROM appointments 
@@ -312,42 +494,53 @@ app.get('/api/availability', async (req, res) => {
         const apptResult = await db.query(apptQuery, [providerId, date]);
         const appointments = apptResult.rows;
 
-        // ג. חישוב סלוטים פנויים
-        // נחלק את הטווחים הזמינים למרווחים של 30 דקות (או לפי אורך השירות, כרגע נניח 30 דק')
+        // 4. שליפת זמנים חסומים באותו יום
+        const blockedQuery = `
+            SELECT start_time, end_time 
+            FROM blocked_times 
+            WHERE provider_id = $1 
+            AND DATE(start_time) = $2
+        `;
+        const blockedResult = await db.query(blockedQuery, [providerId, date]);
+        const blockedTimes = blockedResult.rows;
+
+        // מיזוג של תורים + חסימות
+        const busySlots = [...appointments, ...blockedTimes];
+
+        // 5. יצירת סלוטים פנויים (30 דקות כל אחד)
         const slots = [];
+        
+        // יצירת שעות עבודה מהלוח הקבוע
+        const baseDate = new Date(date);
+        let current = new Date(baseDate);
+        current.setHours(schedStartHour, schedStartMin, 0, 0);
+        
+        const end = new Date(baseDate);
+        end.setHours(schedEndHour, schedEndMin, 0, 0);
 
-        availRanges.forEach(range => {
-            let current = new Date(range.start_time);
-            const end = new Date(range.end_time);
+        while (current < end) {
+            const slotEnd = new Date(current.getTime() + 30 * 60000); // +30 דקות
 
-            while (current < end) {
-                // בדיקה אם הסלוט הזה מתנגש עם תור קיים
-                const slotEnd = new Date(current.getTime() + 30 * 60000); // +30 דקות
+            // בדיקה אם הסלוט תפוס
+            const isTaken = busySlots.some(appt => {
+                const apptStart = new Date(appt.start_time);
+                const apptEnd = new Date(appt.end_time);
+                return (current < apptEnd && slotEnd > apptStart);
+            });
 
-                const isTaken = appointments.some(appt => {
-                    const apptStart = new Date(appt.start_time);
-                    const apptEnd = new Date(appt.end_time);
-                    // חפיפה בין זמנים
-                    return (current < apptEnd && slotEnd > apptStart);
-                });
-
-                if (!isTaken) {
-                    // הוספה לרשימה (פורמט HH:MM)
-                    slots.push(current.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }));
-                }
-
-                // התקדמות ב-30 דקות
-                current = slotEnd;
+            if (!isTaken) {
+                slots.push(current.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }));
             }
-        });
 
-        // מיון וסינון כפילויות אם יש
+            current = slotEnd;
+        }
+
         const uniqueSlots = [...new Set(slots)].sort();
         res.json(uniqueSlots);
 
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('שגיאת שרת');
+        console.error('Availability error:', err.message);
+        res.status(500).json({ msg: 'שגיאה בחישוב זמינות: ' + err.message });
     }
 });
 
@@ -358,23 +551,53 @@ app.post('/api/book', async (req, res) => {
     const { clientId, providerId, serviceId, date, time } = req.body;
 
     try {
+        // וידוא שכל הפרמטרים קיימים
+        if (!clientId || !providerId || !serviceId || !date || !time) {
+            return res.status(400).json({ msg: 'חסרים פרטים לקביעת התור' });
+        }
+
         // יצירת אובייקט תאריך מלא (Date + Time)
-        // הערה: בפרויקט אמיתי עובדים עם ספריות כמו moment/date-fns, כאן נעשה פשוט
         const startTime = new Date(`${date}T${time}:00`);
+        
+        // בדיקה שהתאריך לא בעבר
+        const now = new Date();
+        if (startTime < now) {
+            return res.status(400).json({ msg: 'לא ניתן להזמין תור בתאריך שעבר' });
+        }
+
         const endTime = new Date(startTime.getTime() + 30 * 60000); // מוסיף 30 דקות אוטומטית
 
+        // בדיקה אם התור כבר קיים בשעה זו
+        const checkQuery = `
+            SELECT id FROM appointments 
+            WHERE provider_id = $1 
+            AND DATE(start_time) = $2
+            AND start_time = $3
+        `;
+        const checkResult = await db.query(checkQuery, [providerId, date, startTime]);
+        
+        if (checkResult.rows.length > 0) {
+            return res.status(400).json({ msg: 'השעה הזו כבר תפוסה! בחר שעה אחרת.' });
+        }
+
+        // הוספת התור
         const query = `
             INSERT INTO appointments (client_id, provider_id, service_id, start_time, end_time)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id
         `;
 
-        await db.query(query, [clientId, providerId, serviceId, startTime, endTime]);
-        res.json({ msg: 'התור נקבע בהצלחה!' });
+        const result = await db.query(query, [clientId, providerId, serviceId, startTime, endTime]);
+        
+        if (result.rows.length === 0) {
+            return res.status(500).json({ msg: 'שגיאה בשמירת התור' });
+        }
+
+        res.json({ msg: 'התור נקבע בהצלחה!', id: result.rows[0].id });
 
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('שגיאה בקביעת התור (אולי השעה נתפסה הרגע)');
+        console.error('Booking error:', err.message);
+        res.status(500).json({ msg: 'שגיאה בקביעת התור: ' + err.message });
     }
 });
 
@@ -458,23 +681,47 @@ app.get('/api/calendar/provider/:providerId', authenticateToken, async (req, res
                 a.start_time,
                 a.end_time,
                 s.service_name,
-                
-                -- כאן הקסם: אם יש שם משתמש רשום, קח אותו. אם לא, קח את השם הידני.
                 COALESCE(u.name, a.client_name) AS client_name,
-                
                 a.client_id
             FROM appointments a
             JOIN services s ON a.service_id = s.id
-            LEFT JOIN users u ON a.client_id = u.id  -- שינינו מ-JOIN ל-LEFT JOIN
-            WHERE
-                a.provider_id = $1
+            LEFT JOIN users u ON a.client_id = u.id
+            WHERE a.provider_id = $1
                 AND a.start_time >= $2
                 AND a.start_time <= $3
             ORDER BY a.start_time ASC
         `;
 
-        const result = await db.query(query, [providerId, start, end]);
-        res.json(result.rows);
+        const appointmentsResult = await db.query(query, [providerId, start, end]);
+
+        // שליפת חסימות בטווח התאריכים
+        const blockedQuery = `
+            SELECT 
+                id, 
+                start_time, 
+                end_time, 
+                reason as title 
+            FROM blocked_times 
+            WHERE provider_id = $1 
+            AND start_time >= $2 
+            AND start_time <= $3
+        `;
+        const blockedResult = await db.query(blockedQuery, [providerId, start, end]);
+
+        // עיצוב החסימות שיראו כמו אירועים אבל אחרת
+        const blockedEvents = blockedResult.rows.map(block => ({
+            id: `block-${block.id}`, // מזהה ייחודי כדי שנבדיל בקלינט
+            real_id: block.id,
+            start_time: block.start_time,
+            end_time: block.end_time,
+            title: `⛔ ${block.title || 'חסום'}`,
+            is_blocked: true, // דגל לזיהוי בקלינט
+            color: '#808080', // אפור
+            client_name: null,
+            service_name: 'חסימה'
+        }));
+
+        res.json([...appointmentsResult.rows, ...blockedEvents]);
 
     } catch (err) {
         console.error('Error fetching provider calendar:', err.message);
@@ -514,6 +761,32 @@ app.get('/api/photos/:userId', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).send('שגיאה בטעינת התמונות');
+    }
+});
+
+// DELETE /api/photos/:photoId - מחיקת תמונה
+app.delete('/api/photos/:photoId', authenticateToken, async (req, res) => {
+    const { photoId } = req.params;
+    const userId = req.user.userId;
+
+    try {
+        // בדיקה שהתמונה שייכת למשתמש הנוכחי
+        const result = await db.query(
+            'SELECT * FROM business_photos WHERE id = $1 AND user_id = $2',
+            [photoId, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(403).json({ msg: 'אין הרשאה למחוק תמונה זו' });
+        }
+
+        // מחיקה מהדטאבייס
+        await db.query('DELETE FROM business_photos WHERE id = $1', [photoId]);
+
+        res.json({ msg: 'התמונה נמחקה בהצלחה' });
+    } catch (err) {
+        console.error('Delete photo error:', err.message);
+        res.status(500).json({ msg: 'שגיאה במחיקת התמונה: ' + err.message });
     }
 });
 
@@ -647,35 +920,41 @@ app.delete('/api/services/:id', authenticateToken, async (req, res) => {
 });
 
 // --------------------------------------------------------------------
-// [11] Cancel Appointment - ביטול תור (ספק בלבד)
+// [11] Cancel Appointment - ביטול תור (לקוח או ספק)
 // --------------------------------------------------------------------
 app.delete('/api/appointments/:id', authenticateToken, async (req, res) => {
     const appointmentId = req.params.id;
-    const providerId = req.user.userId; // ה-ID של הספק שמחובר
-
-    // בדיקת הרשאות: רק ספק שירות יכול לבטל תורים
-    if (req.user.role !== 'Service Provider') {
-        return res.status(403).json({ msg: 'רק ספק שירות יכול לבטל תורים.' });
-    }
+    const userId = req.user.userId;
+    const userRole = req.user.role;
 
     try {
-        // שלב 1: בדיקה שהתור באמת שייך לספק הזה (אבטחה)
-        // אנחנו בודקים אם קיים תור עם ה-ID הזה וגם ה-provider_id הזה
-        const checkQuery = 'SELECT * FROM appointments WHERE id = $1 AND provider_id = $2';
-        const checkResult = await db.query(checkQuery, [appointmentId, providerId]);
+        // שלב 1: בדיקה שהתור קיים
+        const checkQuery = 'SELECT * FROM appointments WHERE id = $1';
+        const checkResult = await db.query(checkQuery, [appointmentId]);
 
         if (checkResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'התור לא נמצא או שאינו שייך לך.' });
+            return res.status(404).json({ msg: 'התור לא נמצא.' });
         }
 
-        // שלב 2: מחיקת התור
+        const appointment = checkResult.rows[0];
+
+        // שלב 2: בדיקת הרשאות
+        // ספק יכול לבטל תורים שלו
+        // לקוח יכול לבטל רק את התורים שלו
+        if (userRole === 'Service Provider' && appointment.provider_id !== userId) {
+            return res.status(403).json({ msg: 'אינך יכול לבטל תור של ספק אחר.' });
+        } else if (userRole === 'Client' && appointment.client_id !== userId) {
+            return res.status(403).json({ msg: 'אינך יכול לבטל תור של לקוח אחר.' });
+        }
+
+        // שלב 3: מחיקת התור
         await db.query('DELETE FROM appointments WHERE id = $1', [appointmentId]);
 
         res.json({ msg: 'התור בוטל ונמחק בהצלחה.' });
 
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('שגיאת שרת בביטול התור');
+        console.error('Cancel error:', err.message);
+        res.status(500).json({ msg: 'שגיאה בביטול התור: ' + err.message });
     }
 });
 

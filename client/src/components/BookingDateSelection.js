@@ -3,6 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import heLocale from '@fullcalendar/core/locales/he'; // Hebrew locale
+import './Calendar.css'; // Modern styles override
 
 const BookingDateSelection = ({ service, business, user, onBack, onBookingSuccess }) => {
     const [selectedDate, setSelectedDate] = useState('');
@@ -26,12 +27,22 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
 
         try {
             const res = await fetch(`http://localhost:5000/api/availability?providerId=${business.user_id}&date=${date}`);
-            if (!res.ok) throw new Error('Failed to fetch');
+            if (!res.ok) {
+                throw new Error('Failed to fetch availability');
+            }
             const data = await res.json();
-            setSlots(data);
+            
+            if (!data || data.length === 0) {
+                setMsg('אין שעות זמינות ביום זה. בחר יום אחר או בדוק אם בעל העסק הגדיר זמינות.');
+                setSlots([]);
+            } else {
+                setSlots(data);
+                setMsg('');
+            }
         } catch (err) {
-            console.error(err);
-            setMsg('שגיאה בטעינת תורים פנויים');
+            console.error('Error fetching availability:', err);
+            setMsg('שגיאה בטעינת תורים פנויים. אנא נסה שנית.');
+            setSlots([]);
         } finally {
             setLoading(false);
         }
@@ -72,15 +83,26 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                     time: selectedTime
                 })
             });
-            const data = await res.json();
-            if (res.ok) {
-                onBookingSuccess();
-            } else {
-                setMsg('שגיאה: ' + data.msg);
+            
+            if (!res.ok) {
+                const data = await res.json();
+                setMsg('שגיאה: ' + (data.msg || 'כשל בקביעת התור'));
+                setBooking(false);
+                return;
             }
+
+            const data = await res.json();
+            // Show success message
+            setMsg('✅ התור נקבע בהצלחה! עובר לעמוד התורים שלך...');
+            
+            // Wait a moment to show success message, then navigate
+            setTimeout(() => {
+                onBookingSuccess();
+            }, 1500);
+            
         } catch (err) {
-            setMsg('שגיאת תקשורת');
-        } finally {
+            console.error('Booking error:', err);
+            setMsg('שגיאת תקשורת: ' + err.message);
             setBooking(false);
         }
     };
@@ -124,41 +146,93 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                             {selectedDate ? `תאריך נבחר: ${selectedDate}` : 'בחר תאריך בלוח השנה'}
                         </h4>
 
-                        {!selectedDate && (
+                {!selectedDate && (
                             <p className="text-center text-muted mt-4">
                                 לחץ על יום בלוח השנה כדי לראות שעות פנויות.
                             </p>
                         )}
 
+                        {selectedDate && !loading && (
+                            <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--bg-app)', borderRadius: '6px' }}>
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                    📅 {new Date(selectedDate).toLocaleDateString('he-IL', { weekday: 'long', month: 'long', day: 'numeric' })}
+                                </p>
+                            </div>
+                        )}
+
                         {loading && <p className="text-center">טוען שעות...</p>}
 
-                        {selectedDate && !loading && slots.length === 0 && (
+                        {selectedDate && !loading && slots.length === 0 && !msg && (
                             <div className="alert alert-warning text-center">אין תורים פנויים ביום זה.</div>
                         )}
 
+                        {selectedDate && !loading && msg && (
+                            <div className="alert alert-info text-center" style={{ fontSize: '0.9rem' }}>
+                                {msg}
+                            </div>
+                        )}
+
                         {slots.length > 0 && (
-                            <div className="d-flex flex-wrap gap-2 justify-content-center mt-2" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                {slots.map(slot => (
-                                    <button
-                                        key={slot}
-                                        onClick={() => setSelectedTime(slot)}
-                                        className={`btn ${selectedTime === slot ? 'btn-primary' : 'btn-outline-primary'}`}
-                                        style={{ minWidth: '80px' }}
-                                    >
-                                        {slot}
-                                    </button>
-                                ))}
+                            <div>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                                    זמנים פנויים ({slots.length}):
+                                </p>
+                                <div className="d-flex flex-wrap gap-2 justify-content-center mt-2" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                    {slots.map(slot => (
+                                        <button
+                                            key={slot}
+                                            onClick={() => setSelectedTime(slot)}
+                                            className={`btn ${selectedTime === slot ? 'btn-primary' : 'btn-outline-primary'}`}
+                                            style={{ 
+                                                minWidth: '80px',
+                                                padding: '10px 12px',
+                                                fontSize: '0.95rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {slot}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
                         <div className="mt-auto pt-4">
-                            {msg && <p className="text-danger text-center">{msg}</p>}
+                            {msg && !msg.includes('✅') && (
+                                <p 
+                                    className="text-center text-danger"
+                                    style={{ marginBottom: '15px', fontSize: '0.95rem', fontWeight: '500' }}
+                                >
+                                    ⚠️ {msg}
+                                </p>
+                            )}
+                            
+                            {msg && msg.includes('✅') && (
+                                <p 
+                                    className="text-center text-success"
+                                    style={{ marginBottom: '15px', fontSize: '1rem', fontWeight: 'bold' }}
+                                >
+                                    {msg}
+                                </p>
+                            )}
+
+                            {!selectedDate && (
+                                <p className="text-center text-muted" style={{ marginBottom: '15px', fontSize: '0.9rem' }}>
+                                    ← בחר תאריך כדי להמשיך
+                                </p>
+                            )}
+
+                            {selectedDate && !selectedTime && slots.length > 0 && (
+                                <p className="text-center text-muted" style={{ marginBottom: '15px', fontSize: '0.9rem' }}>
+                                    ← בחר זמן מהרשימה למעלה
+                                </p>
+                            )}
 
                             <button
                                 onClick={handleBook}
                                 disabled={!selectedDate || !selectedTime || booking}
                                 className="btn btn-success w-100 py-3 font-bold"
-                                style={{ fontSize: '1.2rem' }}
+                                style={{ fontSize: '1.2rem', opacity: (!selectedDate || !selectedTime) ? 0.6 : 1 }}
                             >
                                 {booking ? 'מבצע הזמנה...' : 'אשר הזמנה ✅'}
                             </button>

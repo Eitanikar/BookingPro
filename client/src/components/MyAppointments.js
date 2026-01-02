@@ -1,88 +1,191 @@
-// קובץ: client/src/components/MyAppointments.js - קוד מעודכן
+// קובץ: client/src/components/MyAppointments.js - חידוש: היסטוריה וטאבים
 import React, { useEffect, useState } from 'react';
-import ProviderCalendar from './ProviderCalendar'; // ייבוא רכיב היומן
+import ProviderCalendar from './ProviderCalendar';
+import './Calendar.css'; // שימוש בעיצוב הכללי
 
 const MyAppointments = ({ user }) => {
     const [appointments, setAppointments] = useState([]);
-    const [isLoading, setIsLoading] = useState(true); // חדש: מצב טעינה
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'history' | 'calendar'
+    const [refreshTrigger, setRefreshTrigger] = useState(0); // Force refresh counter
 
-    // בדיקה: אם המשתמש הוא ספק שירות, נציג את היומן במקום רשימת התורים
     const isServiceProvider = user && user.role === 'Service Provider';
 
+    // Fetch appointments
+    const fetchAppointments = async () => {
+        try {
+            setIsLoading(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:5000/api/my-appointments', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch appointments');
+            const data = await res.json();
+            setAppointments(data || []);
+        } catch (err) {
+            console.error('Error fetching appointments:', err);
+            setAppointments([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchAppointments = async () => {
-            if (!user || isServiceProvider) {
-                setIsLoading(false); // אין צורך לטעון תורים רגילים אם הוא ספק
-                return;
-            }
-
-            try {
-                // שימו לב: כאן עדיין משתמשים בשיטה הישנה של user-id
-                // לשיפור אבטחה (שכבר יושמה ביומן ספק) יש לעדכן גם את ה-API הזה!
-                const res = await fetch('http://localhost:5000/api/my-appointments', {
-                    headers: { 'user-id': user.id } // שולחים את ה-ID של המשתמש
-                });
-                const data = await res.json();
-                setAppointments(data);
-            } catch (err) {
-                console.error('Error fetching appointments:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+        // Fetch whenever component mounts or when activeTab/user changes
         fetchAppointments();
-    }, [user, isServiceProvider]);
+    }, [user, activeTab, isServiceProvider, refreshTrigger]);
 
-    // פונקציה לפרמוט תאריך ושעה (היה קודם, נשאר)
+    // מיון וסינון
+    const now = new Date();
+
+    // סינון: עתידיים (כולל היום מעכשיו)
+    const upcomingList = appointments.filter(a => new Date(a.start_time) >= now);
+
+    // סינון: היסטוריה (עבר)
+    const historyList = appointments.filter(a => new Date(a.start_time) < now);
+
     const formatDate = (isoString) => {
         const date = new Date(isoString);
-        return date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+        return date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     };
 
     const formatTime = (isoString) => {
-        const date = new Date(isoString);
-        return date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        return new Date(isoString).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
     };
 
-    // --- לוגיקת הצגה: ספק או לקוח ---
+    // ביטול תור
+    const handleCancelAppointment = async (appointmentId) => {
+        if (!window.confirm('האם אתה בטוח שברצונך לבטל את התור הזה?')) {
+            return;
+        }
 
-    // אם המשתמש הוא ספק שירות - מציגים את היומן!
-    if (isServiceProvider) {
-        return (
-            <div className="container">
-                <h1 className="text-center mb-4">🗓️ יומן הספק שלי</h1>
-                {/* מעבירים את המשתמש כ-prop כדי שרכיב היומן יוכל להשתמש ב-ID שלו */}
-                <ProviderCalendar user={user} />
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/appointments/${appointmentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                alert('שגיאה: ' + (data.msg || 'לא ניתן לבטל את התור'));
+                return;
+            }
+
+            alert('✅ התור בוטל בהצלחה');
+            setRefreshTrigger(prev => prev + 1); // רענון התורים
+        } catch (err) {
+            console.error('Cancel error:', err);
+            alert('שגיאת תקשורת: ' + err.message);
+        }
+    };
+
+    // --- רינדור כרטיס תור ---
+    const renderAppointmentCard = (appt, isHistory = false) => (
+        <div key={appt.id} className="card mb-3" style={{ borderRight: `4px solid ${isHistory ? '#9ca3af' : 'var(--primary)'}`, padding: '15px' }}>
+            <div className="d-flex justify-content-between align-items-center">
+                <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: '0 0 5px 0', color: isHistory ? 'var(--text-muted)' : 'var(--text-main)' }}>
+                        {appt.service_name}
+                    </h4>
+                    <p className="text-muted m-0" style={{ fontSize: '0.9rem' }}>
+                        {isServiceProvider ?
+                            `לקוח: ${appt.client_name || 'מזדמן'}` :
+                            `אצל: ${appt.provider_name}`
+                        }
+                    </p>
+                    {appt.price && (
+                        <span className="badge bg-secondary mt-2 d-inline-block">₪{appt.price}</span>
+                    )}
+                </div>
+                <div className="text-left" style={{ textAlign: 'left', minWidth: '100px', marginLeft: '15px' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{formatTime(appt.start_time)}</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{formatDate(appt.start_time)}</div>
+                    {isHistory && <span className="badge bg-light text-dark mt-1">הושלם</span>}
+                </div>
+                {!isHistory && (
+                    <button
+                        onClick={() => handleCancelAppointment(appt.id)}
+                        className="btn btn-danger"
+                        style={{ marginLeft: '10px', padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                    >
+                        ביטול
+                    </button>
+                )}
             </div>
-        );
-    }
+        </div>
+    );
 
-    // אם הוא לקוח, ממשיכים בלוגיקה הקיימת (רשימת תורים)
     return (
-        <div className="container" style={{ maxWidth: '800px' }}>
-            <h2 className="text-center mb-4">📅 התורים שלי</h2>
+        <div className="container" style={{ maxWidth: '900px' }}>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2 className="m-0">
+                    {isServiceProvider ? 'ניהול יומן ותורים' : 'התורים שלי'}
+                </h2>
+                <button 
+                    className="btn btn-outline-primary text-sm"
+                    onClick={() => setRefreshTrigger(prev => prev + 1)}
+                    title="רענן את התורים"
+                >
+                    🔄 רענן
+                </button>
+            </div>
 
-            {isLoading ? (
-                <p className="text-center">טוען תורים...</p>
-            ) : appointments.length === 0 ? (
-                <p className="text-center p-4 bg-surface rounded text-muted">אין לך תורים קרובים. בוא לקבוע!</p>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    {appointments.map(appt => (
-                        <div key={appt.id} className="card flex justify-between items-center" style={{ borderRight: '4px solid var(--primary)' }}>
-                            <div>
-                                <h3 className="mb-2 font-bold">{appt.service_name}</h3>
-                                <p className="text-muted m-0">אצל: {appt.provider_name}</p>
-                            </div>
+            {/* --- Tabs Selection --- */}
+            <div className="d-flex justify-content-center mb-4 gap-3">
+                {isServiceProvider && (
+                    <button
+                        className={`btn ${activeTab === 'calendar' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('calendar')}
+                    >
+                        📅 יומן ויזואלי
+                    </button>
+                )}
 
-                            <div className="text-left">
-                                <div className="font-bold text-lg">{formatTime(appt.start_time)}</div>
-                                <div className="text-sm text-muted">{formatDate(appt.start_time)}</div>
-                            </div>
-                        </div>
-                    ))}
+                <button
+                    className={`btn ${activeTab === 'upcoming' ? (isServiceProvider ? 'btn-outline' : 'btn-primary') : 'btn-outline'}`}
+                    onClick={() => setActiveTab('upcoming')}
+                >
+                    {(isServiceProvider && activeTab === 'calendar') ? 'רשימה עתידית' : 'תורים עתידיים'}
+                </button>
+
+                <button
+                    className={`btn ${activeTab === 'history' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setActiveTab('history')}
+                >
+                    📜 היסטוריה
+                </button>
+            </div>
+
+            {/* --- Content Area --- */}
+
+            {/* 1. Provider Calendar View */}
+            {isServiceProvider && activeTab === 'calendar' && (
+                <div className="animate-fade-in">
+                    <ProviderCalendar user={user} />
                 </div>
             )}
+
+            {/* 2. Upcoming List */}
+            {activeTab === 'upcoming' && (
+                <div className="animate-fade-in">
+                    {isLoading ? <p className="text-center">טוען...</p> :
+                        upcomingList.length === 0 ? <p className="text-center text-muted">אין תורים עתידיים.</p> :
+                            upcomingList.map(appt => renderAppointmentCard(appt))}
+                </div>
+            )}
+
+            {/* 3. History List */}
+            {activeTab === 'history' && (
+                <div className="animate-fade-in">
+                    {isLoading ? <p className="text-center">טוען...</p> :
+                        historyList.length === 0 ? <p className="text-center text-muted">אין היסטוריית תורים.</p> :
+                            historyList.map(appt => renderAppointmentCard(appt, true))}
+                </div>
+            )}
+
         </div>
     );
 };

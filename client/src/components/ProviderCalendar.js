@@ -7,6 +7,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import heLocale from '@fullcalendar/core/locales/he';
 import ManualAppointmentModal from './ManualAppointmentModal'; // החלון לקביעת תור
 import AppointmentDetailsModal from './AppointmentDetailsModal'; // החלון החדש לפרטי תור
+import BlockedTimeModal from './BlockedTimeModal'; // החלון לחסימת זמנים
+import './Calendar.css'; // Modern styles override
 
 const ProviderCalendar = ({ user }) => {
     const calendarRef = useRef(null);
@@ -18,6 +20,9 @@ const ProviderCalendar = ({ user }) => {
     // --- State לפרטי תור קיים (ביטול) ---
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
+
+    // --- State לחסימת זמנים (חדש) ---
+    const [isBlockedModalOpen, setIsBlockedModalOpen] = useState(false);
 
     // טעינת אירועים מהשרת
     const fetchEvents = async (fetchInfo, successCallback, failureCallback) => {
@@ -40,7 +45,13 @@ const ProviderCalendar = ({ user }) => {
                 start: appt.start_time,
                 end: appt.end_time,
                 backgroundColor: appt.client_id ? '#2196F3' : '#FF9800',
-                borderColor: appt.client_id ? '#1976D2' : '#F57C00'
+                borderColor: appt.client_id ? '#1976D2' : '#F57C00',
+
+                // נתונים נוספים לשימוש פנימי
+                extendedProps: {
+                    is_blocked: appt.is_blocked, // הוספנו את זה בשרת
+                    real_id: appt.real_id
+                }
             }));
 
             successCallback(events);
@@ -64,7 +75,15 @@ const ProviderCalendar = ({ user }) => {
 
     // --- 2. לחיצה על תור קיים (פתיחת פרטים לביטול) ---
     const handleEventClick = (info) => {
-        // שולפים את המידע מהאירוע שנלחץ
+        const props = info.event.extendedProps;
+
+        // אם זו חסימה
+        if (props.is_blocked) {
+            handleDeleteBlock(props.real_id);
+            return;
+        }
+
+        // אחרת, זה תור רגיל
         setSelectedAppointment({
             id: info.event.id,
             title: info.event.title,
@@ -105,7 +124,6 @@ const ProviderCalendar = ({ user }) => {
         }
     };
 
-    // --- לוגיקת שמירת תור חדש (מהמודל הישן) ---
     const handleSaveManualAppointment = async (clientName, serviceId) => {
         try {
             const token = localStorage.getItem('token');
@@ -140,9 +158,77 @@ const ProviderCalendar = ({ user }) => {
         }
     };
 
+    // --- לוגיקת שמירת חסימה חדשה ---
+    const handleSaveBlock = async (blockData) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('http://localhost:5000/api/blocked-times', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(blockData)
+            });
+
+            if (res.ok) {
+                alert('✅ הזמן נחסם בהצלחה!');
+                setIsBlockedModalOpen(false);
+                if (calendarRef.current) {
+                    calendarRef.current.getApi().refetchEvents();
+                }
+            } else {
+                alert('שגיאה בשמירת החסימה');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('שגיאת תקשורת');
+        }
+    };
+
+    // --- לוגיקת מחיקת חסימה ---
+    const handleDeleteBlock = async (blockId) => {
+        if (!window.confirm('האם לבטל חסימה זו?')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/blocked-times/${blockId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                alert('✅ החסימה הוסרה.');
+                if (calendarRef.current) {
+                    calendarRef.current.getApi().refetchEvents();
+                }
+            } else {
+                alert('שגיאה בהסרת החסימה');
+            }
+        } catch (err) {
+            alert('שגיאת תקשורת');
+        }
+    };
+
     return (
         <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>יומן ניהול תורים</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0 }}>יומן ניהול תורים</h2>
+                <button
+                    onClick={() => setIsBlockedModalOpen(true)}
+                    style={{
+                        backgroundColor: '#FF5722',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 15px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                    }}
+                >
+                    ⛔ חסימת זמן / חופשה
+                </button>
+            </div>
 
             <div className="calendar-wrapper" style={{ direction: 'rtl' }}>
                 <FullCalendar
@@ -157,11 +243,15 @@ const ProviderCalendar = ({ user }) => {
                     locale={heLocale}
                     direction="rtl"
                     firstDay={0}
-                    slotMinTime="08:00:00"
-                    slotMaxTime="22:00:00"
+                    slotMinTime="07:00:00"
+                    slotMaxTime="23:00:00"
+                    slotDuration="00:30:00"
+                    slotLabelInterval="00:30:00"
                     allDaySlot={false}
                     height="auto"
+                    contentHeight="auto"
                     selectable={true}
+                    selectConstraint="businessHours"
 
                     // אירועים
                     events={fetchEvents}
@@ -188,6 +278,13 @@ const ProviderCalendar = ({ user }) => {
                 onClose={() => setIsDetailsModalOpen(false)}
                 onCancel={handleCancelAppointment}
                 appointment={selectedAppointment}
+            />
+
+            {/* חלון חסימת זמנים (חדש) */}
+            <BlockedTimeModal
+                isOpen={isBlockedModalOpen}
+                onClose={() => setIsBlockedModalOpen(false)}
+                onSave={handleSaveBlock}
             />
         </div>
     );

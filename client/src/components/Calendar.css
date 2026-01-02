@@ -1,0 +1,183 @@
+/* Calendar.css - Modern Dark Theme for FullCalendar */
+
+/* General Calendar Background & Text */
+.fc {
+    direction: rtl;
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+    border-radius: var(--radius);
+    padding: 1rem;
+    font-family: 'Heebo', sans-serif;
+    border: 1px solid var(--border-color);
+}
+
+/* Toolbar (Header) */
+.fc-toolbar-title {
+    font-size: 1.5rem !important;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.fc-button {
+    background-color: var(--bg-surface-hover) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-main) !important;
+    font-weight: 500 !important;
+    text-transform: capitalize;
+    border-radius: 8px !important;
+    transition: all 0.2s ease;
+    box-shadow: none !important;
+}
+
+.fc-button:hover {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: white !important;
+    transform: translateY(-1px);
+}
+
+.fc-button-active {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: white !important;
+}
+
+/* Grid & Cells */
+.fc-theme-standard td, 
+.fc-theme-standard th,
+.fc-theme-standard .fc-scrollgrid {
+    border-color: var(--border-color) !important;
+}
+
+/* Events/Appointments */
+.fc-event {
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.fc-event:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.fc-event-title {
+    font-weight: 600 !important;
+    padding: 4px 0 !important;
+    font-size: 0.95rem !important;
+    white-space: normal !important;
+}
+
+.fc-event-time {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+}
+
+/* Time Grid */
+.fc-col-time-frame {
+    background-color: var(--bg-app) !important;
+}
+
+.fc-daygrid-day-frame {
+    min-height: 100px;
+}
+
+.fc-timegrid-slot {
+    height: 3em;
+}
+
+.fc-col-header-cell {
+    background-color: var(--bg-app);
+    color: var(--text-muted);
+    padding: 10px 0 !important;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fc-daygrid-day-number {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 8px !important;
+    text-decoration: none !important;
+}
+
+.fc-daygrid-day:hover {
+    background-color: var(--bg-surface-hover);
+    cursor: pointer;
+}
+
+/* Today Highlight */
+.fc-day-today {
+    background-color: rgba(99, 102, 241, 0.1) !important; /* using primary color with opacity */
+}
+
+.fc-day-today .fc-daygrid-day-number {
+    color: var(--primary);
+    font-weight: bold;
+    background-color: rgba(99, 102, 241, 0.2);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px;
+}
+
+/* Events */
+.fc-event {
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.1s;
+}
+
+.fc-event:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+    cursor: pointer;
+}
+
+.fc-event-main {
+    color: white; /* Ensure text is readable on colored backgrounds */
+    padding: 2px;
+}
+
+/* TimeGrid (Week/Day View) specific */
+.fc-timegrid-slot {
+    height: 3em !important; /* Taller slots for better readability */
+}
+
+.fc-timegrid-slot-label {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.fc-timegrid-now-indicator-line {
+    border-color: var(--accent);
+    border-width: 2px;
+}
+
+.fc-timegrid-now-indicator-arrow {
+    border-color: var(--accent);
+    border-width: 6px;
+}
+
+/* List View */
+.fc-list-event:hover td {
+    background-color: var(--bg-surface-hover) !important;
+}
+
+.fc-list-day-cushion {
+    background-color: var(--bg-app) !important;
+}
+
+.fc-list-event-title, .fc-list-event-time {
+    color: var(--text-main);
+}

@@ -38,6 +38,18 @@ body {
   text-align: center;
 }
 
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-success {
+  color: #10b981;
+}
+
+.text-danger {
+  color: #f43f5e;
+}
+
 .mb-2 {
   margin-bottom: 0.5rem;
 }
