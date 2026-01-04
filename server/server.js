@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const db = require('./db');
 const initDB = require('./initDB');
+const { sendEmail } = require('./emailService');
 
 // --- הגדרות השרת והסודות ---
 const PORT = 5000;
@@ -544,11 +545,14 @@ app.get('/api/availability', async (req, res) => {
     }
 });
 
+
 // --------------------------------------------------------------------
 // [6] Book Appointment Route - ביצוע ההזמנה
 // --------------------------------------------------------------------
 app.post('/api/book', async (req, res) => {
     const { clientId, providerId, serviceId, date, time } = req.body;
+    
+    // התחלת טרנזקציה (כדי שאם משהו נכשל, הכל יבוטל)
     const client = await db.query('BEGIN');
 
     try {
@@ -598,15 +602,57 @@ app.post('/api/book', async (req, res) => {
             return res.status(500).json({ msg: 'שגיאה בשמירת התור' });
         }
 
-        // Commit הטרנזקציה
+        // שמירה סופית בדאטה בייס
         await db.query('COMMIT');
+
+        // ==========================================
+        // חדש: שליחת מייל לבעל העסק (אחרי שהתור נשמר בהצלחה)
+        // ==========================================
+        try {
+            // 1. שליפת האימייל של הספק (בעל העסק)
+            const providerRes = await db.query('SELECT email, name FROM users WHERE id = $1', [providerId]);
+            const provider = providerRes.rows[0];
+
+            // 2. שליפת שם הלקוח (לצורך ההודעה)
+            let clientName = 'לקוח';
+            if (clientId) {
+                const clientRes = await db.query('SELECT name FROM users WHERE id = $1', [clientId]);
+                if (clientRes.rows.length > 0) clientName = clientRes.rows[0].name;
+            }
+
+            // 3. שליחת המייל בפועל
+            if (provider && provider.email) {
+                const subject = `📅 תור חדש נקבע: ${date} בשעה ${time}`;
+                const htmlBody = `
+                    <div style="direction: rtl; font-family: Arial, sans-serif; color: #333;">
+                        <h2 style="color: #2196F3;">היי ${provider.name},</h2>
+                        <p>שמחים לעדכן שנקבע תור חדש בעסק שלך!</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                            <p style="margin: 5px 0;"><strong>👤 לקוח:</strong> ${clientName}</p>
+                            <p style="margin: 5px 0;"><strong>📅 תאריך:</strong> ${date}</p>
+                            <p style="margin: 5px 0;"><strong>⏰ שעה:</strong> ${time}</p>
+                        </div>
+                        <p>התור כבר מופיע ביומן שלך.</p>
+                        <br>
+                        <p style="font-size: 0.9em; color: #777;">בברכה,<br>צוות BookingPro</p>
+                    </div>
+                `;
+                
+                // שליחה (בלי לחכות לתשובה כדי לא לעכב את האתר)
+                sendEmail(provider.email, subject, htmlBody);
+            }
+        } catch (emailErr) {
+            console.error('⚠️ Failed to send notification email:', emailErr);
+            // אנחנו לא עוצרים את התהליך, ההזמנה הצליחה גם אם המייל נכשל
+        }
+        // ==========================================
+
         res.json({ msg: 'התור נקבע בהצלחה!', id: result.rows[0].id });
 
     } catch (err) {
         await db.query('ROLLBACK');
         console.error('Booking error:', err.message);
         
-        // בדיקה אם זה שגיאת כפילות
         if (err.code === '23505') {
             return res.status(400).json({ msg: 'תור זה כבר תפוס! בחר שעה אחרת.' });
         }
