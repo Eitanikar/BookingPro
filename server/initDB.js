@@ -74,6 +74,20 @@ const initDB = async () => {
             );
         `);
 
+        // 8. Create client_details table for storing personal information
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS client_details (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                phone VARCHAR(20),
+                email VARCHAR(100),
+                full_name VARCHAR(100),
+                notes TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id)
+            );
+        `);
+
         console.log('Database initialization complete.');
 
     } catch (err) {

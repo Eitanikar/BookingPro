@@ -8,6 +8,7 @@ import BusinessProfileClientView from './components/BusinessProfileClientView';
 import BookingDateSelection from './components/BookingDateSelection';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
+import ClientDetailsEditor from './components/ClientDetailsEditor';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import './App.css';
@@ -139,6 +140,15 @@ function App() {
                     <h3>התורים שלי</h3>
                     <p className="text-muted">ניהול וצפייה בתורים</p>
                   </div>
+
+                  {/* --- כפתור לעריכת פרטים אישיים --- */}
+                  {user.role === 'Client' && (
+                      <div className="card hover-card" onClick={() => setView('client-details')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>👤</div>
+                        <h3>פרטים אישיים</h3>
+                        <p className="text-muted">עדכן את הפרטים שלך</p>
+                      </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -176,6 +186,15 @@ function App() {
         {view === 'my-appointments' && (
           <div className="container animate-fade-in">
             <MyAppointments user={user} />
+            <div className="text-center mt-4">
+              <button onClick={() => setView('home')} className="btn btn-secondary">חזרה לדף הבית</button>
+            </div>
+          </div>
+        )}
+
+        {view === 'client-details' && user && (
+          <div className="animate-fade-in">
+            <ClientDetailsEditor user={user} />
             <div className="text-center mt-4">
               <button onClick={() => setView('home')} className="btn btn-secondary">חזרה לדף הבית</button>
             </div>

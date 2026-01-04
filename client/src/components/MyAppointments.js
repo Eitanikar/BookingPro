@@ -8,6 +8,7 @@ const MyAppointments = ({ user }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'history' | 'calendar'
     const [refreshTrigger, setRefreshTrigger] = useState(0); // Force refresh counter
+    const [clientDetails, setClientDetails] = useState({}); // Store client details by user ID
 
     const isServiceProvider = user && user.role === 'Service Provider';
 
@@ -22,6 +23,25 @@ const MyAppointments = ({ user }) => {
             if (!res.ok) throw new Error('Failed to fetch appointments');
             const data = await res.json();
             setAppointments(data || []);
+
+            // If service provider, fetch client details for each appointment
+            if (isServiceProvider && data && data.length > 0) {
+                const uniqueClientIds = [...new Set(data.map(a => a.client_id).filter(Boolean))];
+                const detailsMap = {};
+                
+                for (const clientId of uniqueClientIds) {
+                    try {
+                        const detailRes = await fetch(`http://localhost:5000/api/client-details/${clientId}`);
+                        if (detailRes.ok) {
+                            const details = await detailRes.json();
+                            detailsMap[clientId] = details;
+                        }
+                    } catch (err) {
+                        console.error(`Failed to fetch details for client ${clientId}:`, err);
+                    }
+                }
+                setClientDetails(detailsMap);
+            }
         } catch (err) {
             console.error('Error fetching appointments:', err);
             setAppointments([]);
@@ -83,7 +103,10 @@ const MyAppointments = ({ user }) => {
     };
 
     // --- רינדור כרטיס תור ---
-    const renderAppointmentCard = (appt, isHistory = false) => (
+    const renderAppointmentCard = (appt, isHistory = false) => {
+        const clientInfo = isServiceProvider && appt.client_id ? clientDetails[appt.client_id] : null;
+
+        return (
         <div key={appt.id} className="card mb-3" style={{ borderRight: `4px solid ${isHistory ? '#9ca3af' : 'var(--primary)'}`, padding: '15px' }}>
             <div className="d-flex justify-content-between align-items-center">
                 <div style={{ flex: 1 }}>
@@ -96,6 +119,17 @@ const MyAppointments = ({ user }) => {
                             `אצל: ${appt.provider_name}`
                         }
                     </p>
+
+                    {/* Display client details for service providers */}
+                    {isServiceProvider && clientInfo && (
+                        <div style={{ marginTop: '8px', fontSize: '0.85rem', borderTop: '1px solid #333', paddingTop: '8px' }}>
+                            {clientInfo.phone && <div>📱 {clientInfo.phone}</div>}
+                            {clientInfo.email && <div>✉️ {clientInfo.email}</div>}
+                            {clientInfo.full_name && <div>👤 {clientInfo.full_name}</div>}
+                            {clientInfo.notes && <div style={{ fontStyle: 'italic', marginTop: '4px' }}>📝 {clientInfo.notes}</div>}
+                        </div>
+                    )}
+
                     {appt.price && (
                         <span className="badge bg-secondary mt-2 d-inline-block">₪{appt.price}</span>
                     )}
@@ -116,7 +150,8 @@ const MyAppointments = ({ user }) => {
                 )}
             </div>
         </div>
-    );
+        );
+    };
 
     return (
         <div className="container" style={{ maxWidth: '900px' }}>

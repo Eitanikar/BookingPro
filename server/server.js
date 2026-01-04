@@ -549,10 +549,12 @@ app.get('/api/availability', async (req, res) => {
 // --------------------------------------------------------------------
 app.post('/api/book', async (req, res) => {
     const { clientId, providerId, serviceId, date, time } = req.body;
+    const client = await db.query('BEGIN');
 
     try {
         // וידוא שכל הפרמטרים קיימים
         if (!clientId || !providerId || !serviceId || !date || !time) {
+            await db.query('ROLLBACK');
             return res.status(400).json({ msg: 'חסרים פרטים לקביעת התור' });
         }
 
@@ -562,25 +564,27 @@ app.post('/api/book', async (req, res) => {
         // בדיקה שהתאריך לא בעבר
         const now = new Date();
         if (startTime < now) {
+            await db.query('ROLLBACK');
             return res.status(400).json({ msg: 'לא ניתן להזמין תור בתאריך שעבר' });
         }
 
         const endTime = new Date(startTime.getTime() + 30 * 60000); // מוסיף 30 דקות אוטומטית
 
-        // בדיקה אם התור כבר קיים בשעה זו
+        // בדיקה אם התור כבר קיים בשעה זו עם LOCK
         const checkQuery = `
             SELECT id FROM appointments 
             WHERE provider_id = $1 
-            AND DATE(start_time) = $2
-            AND start_time = $3
+            AND start_time = $2
+            FOR UPDATE
         `;
-        const checkResult = await db.query(checkQuery, [providerId, date, startTime]);
+        const checkResult = await db.query(checkQuery, [providerId, startTime]);
         
         if (checkResult.rows.length > 0) {
+            await db.query('ROLLBACK');
             return res.status(400).json({ msg: 'השעה הזו כבר תפוסה! בחר שעה אחרת.' });
         }
 
-        // הוספת התור
+        // הוספת התור (בתוך הטרנזקציה)
         const query = `
             INSERT INTO appointments (client_id, provider_id, service_id, start_time, end_time)
             VALUES ($1, $2, $3, $4, $5)
@@ -590,13 +594,23 @@ app.post('/api/book', async (req, res) => {
         const result = await db.query(query, [clientId, providerId, serviceId, startTime, endTime]);
         
         if (result.rows.length === 0) {
+            await db.query('ROLLBACK');
             return res.status(500).json({ msg: 'שגיאה בשמירת התור' });
         }
 
+        // Commit הטרנזקציה
+        await db.query('COMMIT');
         res.json({ msg: 'התור נקבע בהצלחה!', id: result.rows[0].id });
 
     } catch (err) {
+        await db.query('ROLLBACK');
         console.error('Booking error:', err.message);
+        
+        // בדיקה אם זה שגיאת כפילות
+        if (err.code === '23505') {
+            return res.status(400).json({ msg: 'תור זה כבר תפוס! בחר שעה אחרת.' });
+        }
+        
         res.status(500).json({ msg: 'שגיאה בקביעת התור: ' + err.message });
     }
 });
@@ -994,8 +1008,94 @@ app.delete('/api/appointments/:id', authenticateToken, async (req, res) => {
 });
 
 // --------------------------------------------------------------------
-// [2] הפעלת השרת
+// [13] Client Personal Details Management
 // --------------------------------------------------------------------
+
+// GET client details
+app.get('/api/client-details', authenticateToken, async (req, res) => {
+    const userId = req.user.userId;
+
+    try {
+        const result = await db.query(
+            'SELECT * FROM client_details WHERE user_id = $1',
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ user_id: userId });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching client details:', err.message);
+        res.status(500).json({ msg: 'שגיאה בטעינת הפרטים' });
+    }
+});
+
+// POST/UPDATE client details
+app.post('/api/client-details', authenticateToken, async (req, res) => {
+    const userId = req.user.userId;
+    const { phone, email, full_name, notes } = req.body;
+
+    try {
+        // בדיקה אם קיים רשומה כבר
+        const existing = await db.query(
+            'SELECT id FROM client_details WHERE user_id = $1',
+            [userId]
+        );
+
+        let result;
+        if (existing.rows.length === 0) {
+            // הכנסה חדשה
+            result = await db.query(
+                `INSERT INTO client_details (user_id, phone, email, full_name, notes, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+                 RETURNING *`,
+                [userId, phone, email, full_name, notes]
+            );
+        } else {
+            // עדכון קיים
+            result = await db.query(
+                `UPDATE client_details 
+                 SET phone = $2, email = $3, full_name = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+                 WHERE user_id = $1
+                 RETURNING *`,
+                [userId, phone, email, full_name, notes]
+            );
+        }
+
+        res.json({
+            msg: 'הפרטים נשמרו בהצלחה',
+            details: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error saving client details:', err.message);
+        res.status(500).json({ msg: 'שגיאה בשמירת הפרטים: ' + err.message });
+    }
+});
+
+// GET client details by user ID (for providers to see appointment client details)
+app.get('/api/client-details/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const result = await db.query(
+            'SELECT phone, email, full_name, notes FROM client_details WHERE user_id = $1',
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({});
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching client details:', err.message);
+        res.status(500).json({ msg: 'שגיאה בטעינת הפרטים' });
+    }
+});
+
+// [2] הפעלת השרת
 initDB().then(() => {
     app.listen(PORT, () => console.log(`שרת Node.js פועל בפורט ${PORT}`));
 });
