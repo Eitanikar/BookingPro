@@ -139,7 +139,15 @@ const BusinessProfileSetup = ({ user, onSaveSuccess }) => {
     };
 
     return (
-        <div style={{ maxWidth: '600px', margin: '40px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '12px', backgroundColor: '#fff', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <div style={{ maxWidth: '600px', 
+            margin: '40px auto', 
+            padding: '30px', 
+            border: '1px solid #ddd', 
+            borderRadius: '12px', 
+            backgroundColor: '#fff', 
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)' ,
+            color: '#333'
+            }}>
             <h2 style={{ textAlign: 'center', color: '#333' }}>🏢 ניהול העסק שלך</h2>
             <p style={{ textAlign: 'center', marginBottom: '20px', color: '#666' }}>
                 שלום <strong>{user.name}</strong>, כאן תוכל לערוך את פרטי העסק ולנהל את הגלריה.

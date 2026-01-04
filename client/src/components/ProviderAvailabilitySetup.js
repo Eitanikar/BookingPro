@@ -180,7 +180,9 @@ const ProviderAvailabilitySetup = ({ user }) => {
                                 transition: 'all 0.3s ease'
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '15px' }}>
                                 {/* Checkbox */}
                                 <input
                                     type="checkbox"
@@ -201,7 +203,8 @@ const ProviderAvailabilitySetup = ({ user }) => {
                                         flex: '0 0 60px',
                                         fontWeight: 'bold',
                                         cursor: 'pointer',
-                                        marginBottom: 0
+                                        marginBottom: 0,
+                                        color: '#ffffff'
                                     }}
                                 >
                                     {DAYS_OF_WEEK_HE[index]}
