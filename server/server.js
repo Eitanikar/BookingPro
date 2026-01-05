@@ -7,6 +7,7 @@ const cors = require('cors');
 const db = require('./db');
 const initDB = require('./initDB');
 const { sendEmail } = require('./emailService');
+const { startReminderScheduler } = require('./reminderService');
 
 // --- הגדרות השרת והסודות ---
 const PORT = 5000;
@@ -1202,8 +1203,24 @@ app.get('/api/client-details/:userId', async (req, res) => {
     }
 });
 
+// [14] Manual trigger for appointment reminders (for testing)
+// Endpoint to manually check and send reminders
+app.post('/api/test/send-reminders', async (req, res) => {
+    try {
+        const { checkAndSendReminders } = require('./reminderService');
+        await checkAndSendReminders();
+        res.json({ msg: '✅ בדיקת תזכורות התחילה' });
+    } catch (err) {
+        console.error('Error triggering reminders:', err.message);
+        res.status(500).json({ msg: 'שגיאה בביצוע בדיקה' });
+    }
+});
+
 // [2] הפעלת השרת
 initDB().then(() => {
+    // הפעלת מתזכר התורים
+    startReminderScheduler();
+    
     app.listen(PORT, () => console.log(`שרת Node.js פועל בפורט ${PORT}`));
 });
 

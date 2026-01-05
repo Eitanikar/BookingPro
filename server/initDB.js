@@ -88,6 +88,19 @@ const initDB = async () => {
             );
         `);
 
+        // 9. Create appointment_reminders table to track sent reminders
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS appointment_reminders (
+                id SERIAL PRIMARY KEY,
+                appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
+                client_email VARCHAR(100),
+                provider_email VARCHAR(100),
+                reminder_type VARCHAR(50), -- 'day_before', 'day_of', etc.
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(20) DEFAULT 'sent' -- 'sent', 'failed'
+            );
+        `);
+
         console.log('Database initialization complete.');
 
     } catch (err) {
