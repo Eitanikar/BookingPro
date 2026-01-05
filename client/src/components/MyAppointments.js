@@ -26,14 +26,18 @@ const MyAppointments = ({ user }) => {
 
             // If service provider, fetch client details for each appointment
             if (isServiceProvider && data && data.length > 0) {
+                console.log('MyAppointments Debug: Raw Appointments:', data);
                 const uniqueClientIds = [...new Set(data.map(a => a.client_id).filter(Boolean))];
+                console.log('MyAppointments Debug: Unique Client IDs:', uniqueClientIds);
+
                 const detailsMap = {};
-                
+
                 for (const clientId of uniqueClientIds) {
                     try {
                         const detailRes = await fetch(`http://localhost:5000/api/client-details/${clientId}`);
                         if (detailRes.ok) {
                             const details = await detailRes.json();
+                            console.log(`MyAppointments Debug: Details for ${clientId}:`, details);
                             detailsMap[clientId] = details;
                         }
                     } catch (err) {
@@ -107,49 +111,49 @@ const MyAppointments = ({ user }) => {
         const clientInfo = isServiceProvider && appt.client_id ? clientDetails[appt.client_id] : null;
 
         return (
-        <div key={appt.id} className="card mb-3" style={{ borderRight: `4px solid ${isHistory ? '#9ca3af' : 'var(--primary)'}`, padding: '15px' }}>
-            <div className="d-flex justify-content-between align-items-center">
-                <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: '0 0 5px 0', color: isHistory ? 'var(--text-muted)' : 'var(--text-main)' }}>
-                        {appt.service_name}
-                    </h4>
-                    <p className="text-muted m-0" style={{ fontSize: '0.9rem' }}>
-                        {isServiceProvider ?
-                            `לקוח: ${appt.client_name || 'מזדמן'}` :
-                            `אצל: ${appt.provider_name}`
-                        }
-                    </p>
+            <div key={appt.id} className="card mb-3" style={{ borderRight: `4px solid ${isHistory ? '#9ca3af' : 'var(--primary)'}`, padding: '15px' }}>
+                <div className="d-flex justify-content-between align-items-center">
+                    <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: '0 0 5px 0', color: isHistory ? 'var(--text-muted)' : 'var(--text-main)' }}>
+                            {appt.service_name}
+                        </h4>
+                        <p className="text-muted m-0" style={{ fontSize: '0.9rem' }}>
+                            {isServiceProvider ?
+                                `לקוח: ${appt.client_name || 'מזדמן'}` :
+                                `אצל: ${appt.provider_name}`
+                            }
+                        </p>
 
-                    {/* Display client details for service providers */}
-                    {isServiceProvider && clientInfo && (
-                        <div style={{ marginTop: '8px', fontSize: '0.85rem', borderTop: '1px solid #333', paddingTop: '8px' }}>
-                            {clientInfo.phone && <div>📱 {clientInfo.phone}</div>}
-                            {clientInfo.email && <div>✉️ {clientInfo.email}</div>}
-                            {clientInfo.full_name && <div>👤 {clientInfo.full_name}</div>}
-                            {clientInfo.notes && <div style={{ fontStyle: 'italic', marginTop: '4px' }}>📝 {clientInfo.notes}</div>}
-                        </div>
-                    )}
+                        {/* Display client details for service providers */}
+                        {isServiceProvider && clientInfo && (
+                            <div style={{ marginTop: '8px', fontSize: '0.85rem', borderTop: '1px solid #333', paddingTop: '8px' }}>
+                                {clientInfo.phone && <div>📱 {clientInfo.phone}</div>}
+                                {clientInfo.email && <div>✉️ {clientInfo.email}</div>}
+                                {clientInfo.full_name && <div>👤 {clientInfo.full_name}</div>}
+                                {clientInfo.notes && <div style={{ fontStyle: 'italic', marginTop: '4px' }}>📝 {clientInfo.notes}</div>}
+                            </div>
+                        )}
 
-                    {appt.price && (
-                        <span className="badge bg-secondary mt-2 d-inline-block">₪{appt.price}</span>
+                        {appt.price && (
+                            <span className="badge bg-secondary mt-2 d-inline-block">₪{appt.price}</span>
+                        )}
+                    </div>
+                    <div className="text-left" style={{ textAlign: 'left', minWidth: '100px', marginLeft: '15px' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{formatTime(appt.start_time)}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{formatDate(appt.start_time)}</div>
+                        {isHistory && <span className="badge bg-light text-dark mt-1">הושלם</span>}
+                    </div>
+                    {!isHistory && (
+                        <button
+                            onClick={() => handleCancelAppointment(appt.id)}
+                            className="btn btn-danger"
+                            style={{ marginLeft: '10px', padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                        >
+                            ביטול
+                        </button>
                     )}
                 </div>
-                <div className="text-left" style={{ textAlign: 'left', minWidth: '100px', marginLeft: '15px' }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{formatTime(appt.start_time)}</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{formatDate(appt.start_time)}</div>
-                    {isHistory && <span className="badge bg-light text-dark mt-1">הושלם</span>}
-                </div>
-                {!isHistory && (
-                    <button
-                        onClick={() => handleCancelAppointment(appt.id)}
-                        className="btn btn-danger"
-                        style={{ marginLeft: '10px', padding: '6px 12px', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
-                    >
-                        ביטול
-                    </button>
-                )}
             </div>
-        </div>
         );
     };
 
@@ -159,7 +163,7 @@ const MyAppointments = ({ user }) => {
                 <h2 className="m-0">
                     {isServiceProvider ? 'ניהול יומן ותורים' : 'התורים שלי'}
                 </h2>
-                <button 
+                <button
                     className="btn btn-outline-primary text-sm"
                     onClick={() => setRefreshTrigger(prev => prev + 1)}
                     title="רענן את התורים"

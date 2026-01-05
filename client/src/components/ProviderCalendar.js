@@ -265,11 +265,13 @@ const ProviderCalendar = ({ user }) => {
             </div>
 
             {/* חלון קביעת תור חדש */}
+            {/* חלון קביעת תור חדש */}
             <ManualAppointmentModal
                 isOpen={isManualModalOpen}
                 onClose={() => setIsManualModalOpen(false)}
                 onSave={handleSaveManualAppointment}
                 bookingData={newSlot}
+                providerId={user.id}
             />
 
             {/* חלון פרטי תור וביטול (חדש!) */}

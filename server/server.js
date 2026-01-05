@@ -75,12 +75,17 @@ app.post('/api/register', async (req, res) => {
 // [2] User Login Route (התחברות)
 // --------------------------------------------------------------------
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, loginAs } = req.body; // loginAs: 'Client' | 'Service Provider'
 
     // בדיקה שנשלחו פרטים
     if (!email || !password) {
         return res.status(400).json({ msg: 'נא למלא אימייל וסיסמה' });
     }
+
+    console.log('Login request:', { email, loginAs });
+
+    // Default to 'Client' if not specified (backward compatibility)
+    const requestedRole = loginAs || 'Client';
 
     try {
         // 1. בדיקה אם המשתמש קיים ב-DB
@@ -92,17 +97,38 @@ app.post('/api/login', async (req, res) => {
 
         const user = result.rows[0];
 
-        // 2. בדיקת התאמת סיסמה (השוואה בין מה שהוקלד למה שמוצפן ב-DB)
+        // 2. בדיקת התאמת סיסמה
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
             return res.status(400).json({ msg: 'פרטים שגויים (סיסמה לא תואמת)' });
         }
 
-        // 3. יצירת Token והחזרה ללקוח
-        const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
+        // 3. בדיקת הרשאות לפי Context
+        if (requestedRole === 'Service Provider') {
+            if (user.role !== 'Service Provider') {
+                return res.status(403).json({ msg: 'אין לך הרשאה להיכנס כעסק. אנא הרשם כספק שירות.' });
+            }
+        }
+        // אם requestedRole === 'Client', כולם יכולים להיכנס (גם ספקים)
 
-        res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
+        // 4. יצירת Token עם התפקיד *הנבחר* לאותו סשן
+        // הסשן הזה יתנהג לפי התפקיד שנבחר בכניסה
+        const token = jwt.sign(
+            { userId: user.id, role: requestedRole },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                role: requestedRole,     // Active role for this session
+                originalRole: user.role  // Persist original capability
+            }
+        });
 
     } catch (err) {
         console.error(err.message);
@@ -219,6 +245,7 @@ app.get('/api/my-appointments', authenticateToken, async (req, res) => {
                     a.id, 
                     s.service_name, 
                     COALESCE(u.name, a.client_name) as client_name, 
+                    a.client_id,
                     a.start_time, 
                     a.status,
                     s.price
@@ -476,7 +503,7 @@ app.get('/api/availability', async (req, res) => {
             AND day_of_week = $2
         `;
         const scheduleResult = await db.query(scheduleQuery, [providerId, dayOfWeek]);
-        
+
         if (scheduleResult.rows.length === 0) {
             return res.json([]); // בעל העסק לא עובד ביום הזה
         }
@@ -510,12 +537,12 @@ app.get('/api/availability', async (req, res) => {
 
         // 5. יצירת סלוטים פנויים (30 דקות כל אחד)
         const slots = [];
-        
+
         // יצירת שעות עבודה מהלוח הקבוע
         const baseDate = new Date(date);
         let current = new Date(baseDate);
         current.setHours(schedStartHour, schedStartMin, 0, 0);
-        
+
         const end = new Date(baseDate);
         end.setHours(schedEndHour, schedEndMin, 0, 0);
 
@@ -551,7 +578,7 @@ app.get('/api/availability', async (req, res) => {
 // --------------------------------------------------------------------
 app.post('/api/book', async (req, res) => {
     const { clientId, providerId, serviceId, date, time } = req.body;
-    
+
     // התחלת טרנזקציה (כדי שאם משהו נכשל, הכל יבוטל)
     const client = await db.query('BEGIN');
 
@@ -564,7 +591,7 @@ app.post('/api/book', async (req, res) => {
 
         // יצירת אובייקט תאריך מלא (Date + Time)
         const startTime = new Date(`${date}T${time}:00`);
-        
+
         // בדיקה שהתאריך לא בעבר
         const now = new Date();
         if (startTime < now) {
@@ -582,7 +609,7 @@ app.post('/api/book', async (req, res) => {
             FOR UPDATE
         `;
         const checkResult = await db.query(checkQuery, [providerId, startTime]);
-        
+
         if (checkResult.rows.length > 0) {
             await db.query('ROLLBACK');
             return res.status(400).json({ msg: 'השעה הזו כבר תפוסה! בחר שעה אחרת.' });
@@ -596,7 +623,7 @@ app.post('/api/book', async (req, res) => {
         `;
 
         const result = await db.query(query, [clientId, providerId, serviceId, startTime, endTime]);
-        
+
         if (result.rows.length === 0) {
             await db.query('ROLLBACK');
             return res.status(500).json({ msg: 'שגיאה בשמירת התור' });
@@ -606,21 +633,34 @@ app.post('/api/book', async (req, res) => {
         await db.query('COMMIT');
 
         // ==========================================
-        // חדש: שליחת מייל לבעל העסק (אחרי שהתור נשמר בהצלחה)
+        // חדש: שליחת מייל לבעל העסק + ללקוח (אחרי שהתור נשמר בהצלחה)
         // ==========================================
         try {
-            // 1. שליפת האימייל של הספק (בעל העסק)
-            const providerRes = await db.query('SELECT email, name FROM users WHERE id = $1', [providerId]);
+            // 1. שליפת הפרטים: ספק (בעל העסק) + עסק + לקוח
+            // נשלוף את שם העסק מהטבלה businesses
+            const providerQuery = `
+                SELECT u.email, u.name, b.business_name 
+                FROM users u
+                LEFT JOIN businesses b ON u.id = b.user_id
+                WHERE u.id = $1
+            `;
+            const providerRes = await db.query(providerQuery, [providerId]);
             const provider = providerRes.rows[0];
 
-            // 2. שליפת שם הלקוח (לצורך ההודעה)
+            // שליפת המייל ושם הלקוח
+            // אם המשתמש רשום, נשלוף מהטבלה. אם לא, יכול להיות שאין לנו אימייל (אלא אם הוספנו תמיכה לאורחים, כרגע זה רשומים בלבד)
+            let clientEmail = null;
             let clientName = 'לקוח';
+
             if (clientId) {
-                const clientRes = await db.query('SELECT name FROM users WHERE id = $1', [clientId]);
-                if (clientRes.rows.length > 0) clientName = clientRes.rows[0].name;
+                const clientRes = await db.query('SELECT email, name FROM users WHERE id = $1', [clientId]);
+                if (clientRes.rows.length > 0) {
+                    clientEmail = clientRes.rows[0].email;
+                    clientName = clientRes.rows[0].name;
+                }
             }
 
-            // 3. שליחת המייל בפועל
+            // A. שליחה לבעל העסק (ספק)
             if (provider && provider.email) {
                 const subject = `📅 תור חדש נקבע: ${date} בשעה ${time}`;
                 const htmlBody = `
@@ -637,10 +677,31 @@ app.post('/api/book', async (req, res) => {
                         <p style="font-size: 0.9em; color: #777;">בברכה,<br>צוות BookingPro</p>
                     </div>
                 `;
-                
-                // שליחה (בלי לחכות לתשובה כדי לא לעכב את האתר)
                 sendEmail(provider.email, subject, htmlBody);
             }
+
+            // B. שליחה ללקוח (אישור הזמנה)
+            if (clientEmail) {
+                const businessName = provider.business_name || 'BookPro Business';
+                const subjectClient = `✅ אישור הזמנת תור ל-${businessName}`;
+                const htmlBodyClient = `
+                    <div style="direction: rtl; font-family: Arial, sans-serif; color: #333;">
+                        <h2 style="color: #4CAF50;">היי ${clientName},</h2>
+                        <p>התור שלך ל-<strong>${businessName}</strong> נקבע בהצלחה!</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
+                            <p style="margin: 5px 0;"><strong>📅 תאריך:</strong> ${date}</p>
+                            <p style="margin: 5px 0;"><strong>⏰ שעה:</strong> ${time}</p>
+                            <p style="margin: 5px 0;"><strong>🏢 עסק:</strong> ${businessName}</p>
+                        </div>
+                        <p>נתראה בקרוב!</p>
+                        <br>
+                        <p style="font-size: 0.9em; color: #777;">בברכה,<br>צוות BookingPro</p>
+                    </div>
+                `;
+                console.log(`Sending client confirmation to: ${clientEmail}`);
+                sendEmail(clientEmail, subjectClient, htmlBodyClient);
+            }
+
         } catch (emailErr) {
             console.error('⚠️ Failed to send notification email:', emailErr);
             // אנחנו לא עוצרים את התהליך, ההזמנה הצליחה גם אם המייל נכשל
@@ -652,11 +713,11 @@ app.post('/api/book', async (req, res) => {
     } catch (err) {
         await db.query('ROLLBACK');
         console.error('Booking error:', err.message);
-        
+
         if (err.code === '23505') {
             return res.status(400).json({ msg: 'תור זה כבר תפוס! בחר שעה אחרת.' });
         }
-        
+
         res.status(500).json({ msg: 'שגיאה בקביעת התור: ' + err.message });
     }
 });
@@ -796,7 +857,7 @@ app.get('/api/calendar/provider/:providerId', authenticateToken, async (req, res
 app.put('/api/business-profile', authenticateToken, async (req, res) => {
     // אנחנו מצפים לקבל את השדות האלו מהטופס בצד לקוח
     const { businessName, address, phone, description } = req.body;
-    
+
     // את ה-ID אנחנו לוקחים מהטוקן (כדי שרק בעל העסק יוכל לערוך את עצמו)
     const userId = req.user.userId;
 
@@ -807,7 +868,7 @@ app.put('/api/business-profile', authenticateToken, async (req, res) => {
             WHERE user_id = $5
             RETURNING *
         `;
-        
+
         // הרצת השאילתה
         const result = await db.query(query, [businessName, address, phone, description, userId]);
 

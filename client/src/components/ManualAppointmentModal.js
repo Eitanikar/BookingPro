@@ -1,7 +1,7 @@
 ﻿// קובץ: client/src/components/ManualAppointmentModal.js
 import React, { useState, useEffect } from 'react';
 
-const ManualAppointmentModal = ({ isOpen, onClose, onSave, bookingData }) => {
+const ManualAppointmentModal = ({ isOpen, onClose, onSave, bookingData, providerId }) => {
     // State לשמירת הנתונים שהספק מקליד
     const [clientName, setClientName] = useState('');
     const [serviceId, setServiceId] = useState('');
@@ -13,17 +13,17 @@ const ManualAppointmentModal = ({ isOpen, onClose, onSave, bookingData }) => {
 
     // בעת טעינת החלון: נביא את רשימת השירותים מהשרת
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && providerId) {
             fetchServices();
             // איפוס שדות
             setClientName('');
             setServiceId('');
         }
-    }, [isOpen]);
+    }, [isOpen, providerId]);
 
     const fetchServices = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/services');
+            const res = await fetch(`http://localhost:5000/api/services/provider/${providerId}`);
             const data = await res.json();
             setServices(data);
             // *** מחקנו מכאן את setLoading(false) ***

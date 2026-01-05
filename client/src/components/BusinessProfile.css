@@ -1,0 +1,241 @@
+/* Container for the profile page */
+.profile-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    padding: 30px 20px;
+    color: #f8fafc;
+}
+
+.back-button-container {
+    max-width: 900px;
+    margin: 0 auto 15px auto;
+}
+
+.btn-back {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-back:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    transform: translateX(3px);
+}
+
+/* --- Profile Header (Improved & Compact) --- */
+.profile-header {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    max-width: 900px;
+    margin: 0 auto 40px auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: row;
+    /* Side-by-side layout */
+    align-items: stretch;
+}
+
+.profile-cover-image {
+    width: 350px;
+    height: auto;
+    /* Let it fill the height */
+    min-height: 250px;
+    object-fit: cover;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    /* Border between image and text */
+}
+
+.profile-info {
+    padding: 30px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: right;
+    /* RTL alignment */
+}
+
+.profile-title {
+    font-size: 2rem;
+    /* Smaller than before (was 2.5rem) */
+    margin: 0 0 10px 0;
+    color: #fff;
+    font-weight: 700;
+}
+
+.profile-description {
+    font-size: 1rem;
+    color: #94a3b8;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.profile-contact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: auto;
+    /* Push to bottom if extra space */
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive adjust for smaller screens */
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+    }
+
+    .profile-cover-image {
+        width: 100%;
+        height: 200px;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-info {
+        text-align: center;
+    }
+
+    .profile-contact {
+        justify-content: center;
+    }
+}
+
+/* --- Services Section --- */
+.services-section-title {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 25px;
+    color: #e2e8f0;
+    font-weight: 600;
+    position: relative;
+    display: inline-block;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.services-section-title::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 3px;
+    background: #6366f1;
+    margin: 8px auto 0;
+    border-radius: 2px;
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.service-card-modern {
+    background: rgba(30, 41, 59, 0.5);
+    /* Slightly more transparent */
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+}
+
+.service-card-modern:hover {
+    transform: translateY(-4px);
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.service-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 8px;
+}
+
+.service-desc {
+    color: #64748b;
+    font-size: 0.85rem;
+    flex-grow: 1;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.service-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.service-duration {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.service-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #22d3ee;
+    /* Brighter Cyan */
+}
+
+.btn-select-service {
+    margin-top: 15px;
+    width: 100%;
+    padding: 8px;
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+    /* Slight darker blue */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.btn-select-service:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+/* States */
+.loading-state,
+.error-state,
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+}

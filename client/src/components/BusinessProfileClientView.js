@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import './BusinessProfile.css';
 
-const BusinessProfileClientView = ({ business, onBack, onSelectService }) => {
+const BusinessProfileClientView = ({ business, onBack, onSelectService, user }) => {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Fetch services for this specific provider
         const fetchServices = async () => {
             try {
-                // business.user_id is the provider_id
                 const res = await fetch(`http://localhost:5000/api/services/provider/${business.user_id}`);
 
                 if (!res.ok) throw new Error('Failed to load services');
@@ -32,57 +31,74 @@ const BusinessProfileClientView = ({ business, onBack, onSelectService }) => {
     if (!business) return null;
 
     return (
-        <div className="container animate-fade-in">
-            <button onClick={onBack} className="btn btn-secondary mb-4">
-                &larr; חזרה לרשימת העסקים
-            </button>
+        <div className="profile-page animate-fade-in">
+            <div className="back-button-container">
+                <button onClick={onBack} className="btn-back">
+                    &larr; חזרה לרשימת העסקים
+                </button>
+            </div>
 
             {/* Business Header */}
-            <div className="card mb-4 text-center">
+            <div className="profile-header">
                 {business.image_url && (
                     <img
                         src={business.image_url}
                         alt={business.business_name}
-                        style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}
+                        className="profile-cover-image"
                     />
                 )}
-                <div className="p-4">
-                    <h2 className="mb-2">{business.business_name}</h2>
-                    <p className="text-muted">{business.description}</p>
-                    <div className="text-sm mt-2">
-                        <span className="me-3">📍 {business.address}</span>
-                        <span>📞 {business.phone}</span>
+                <div className="profile-info">
+                    <h2 className="profile-title">{business.business_name}</h2>
+                    <p className="profile-description">{business.description}</p>
+                    <div className="profile-contact">
+                        <div className="contact-item">
+                            <span>📍 {business.address}</span>
+                        </div>
+                        <div className="contact-item">
+                            <span>📞 {business.phone}</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Services List */}
-            <h3 className="text-center mb-4">בחר שירות לקביעת תור</h3>
+            <h3 className="services-section-title">בחר שירות לקביעת תור</h3>
 
-            {loading && <p className="text-center">טוען שירותים...</p>}
-            {error && <p className="text-center text-danger">{error}</p>}
+            {loading && <p className="loading-state">טוען שירותים...</p>}
+            {error && <p className="error-state">{error}</p>}
 
             {!loading && !error && services.length === 0 && (
-                <p className="text-center">לצערנו, לעסק זה אין שירותים זמינים כרגע.</p>
+                <p className="empty-state">לצערנו, לעסק זה אין שירותים זמינים כרגע.</p>
             )}
 
             <div className="services-grid">
                 {services.map(service => (
                     <div
                         key={service.id}
-                        className="service-card cursor-pointer hover-effect"
-                        onClick={() => onSelectService(service)}
-                        style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+                        className="service-card-modern"
+                        onClick={() => {
+                            if (user && user.role === 'Client') {
+                                onSelectService(service);
+                            }
+                        }}
+                        style={{ cursor: user && user.role === 'Client' ? 'pointer' : 'default' }}
                     >
-                        <h4 className="mb-2 font-bold">{service.service_name}</h4>
-                        {service.description && <p className="text-muted text-sm mb-2">{service.description}</p>}
-                        <div className="d-flex justify-content-between align-items-center mt-3">
-                            <span>⏱️ {service.duration_minutes} דק'</span>
-                            <span className="font-bold text-primary">₪{service.price}</span>
+                        <div>
+                            <h4 className="service-name">{service.service_name}</h4>
+                            {service.description && <p className="service-desc">{service.description}</p>}
                         </div>
-                        <button className="btn btn-outline-primary w-100 mt-3">
-                            בחר שירות
-                        </button>
+
+                        <div>
+                            <div className="service-meta">
+                                <span className="service-duration">⏱️ {service.duration_minutes} דק'</span>
+                                <span className="service-price">₪{service.price}</span>
+                            </div>
+                            {user && user.role === 'Client' && (
+                                <button className="btn-select-service">
+                                    בחר שירות
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>

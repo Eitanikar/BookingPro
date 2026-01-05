@@ -121,11 +121,14 @@ function App() {
                   maxWidth: '800px',
                   margin: '0 auto'
                 }}>
-                  <div className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
-                    <h3>דפדפו בעסקים</h3>
-                    <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
-                  </div>
+                  {/* --- כפתור לעיון בעסקים (ללקוחות בלבד) --- */}
+                  {user.role === 'Client' && (
+                    <div className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
+                      <h3>דפדפו בעסקים</h3>
+                      <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
+                    </div>
+                  )}
 
                   {/* --- כפתור קיצור דרך לעסק שלי גם בדף הבית (לספקים בלבד) --- */}
                   {user.role === 'Service Provider' && (
@@ -136,11 +139,14 @@ function App() {
                     </div>
                   )}
 
-                  <div className="card hover-card" onClick={() => setView('my-appointments')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📅</div>
-                    <h3>התורים שלי</h3>
-                    <p className="text-muted">ניהול וצפייה בתורים</p>
-                  </div>
+                  {/* --- כפתור לתורים שלי (לכולם) --- */}
+                  {(user.role === 'Client' || user.role === 'Service Provider') && (
+                    <div className="card hover-card" onClick={() => setView('my-appointments')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📅</div>
+                      <h3>התורים שלי</h3>
+                      <p className="text-muted">ניהול וצפייה בתורים</p>
+                    </div>
+                  )}
 
                   {/* --- כפתור לעריכת פרטים אישיים --- */}
                   {user.role === 'Client' && (

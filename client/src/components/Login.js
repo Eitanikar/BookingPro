@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 
 const Login = ({ onLoginSuccess }) => {
     const [formData, setFormData] = useState({ email: '', password: '' });
+    const [loginContext, setLoginContext] = useState('Client'); // 'Client' or 'Service Provider'
     const [message, setMessage] = useState('');
 
     const { email, password } = formData;
@@ -17,7 +18,11 @@ const Login = ({ onLoginSuccess }) => {
             const res = await fetch('http://localhost:5000/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({
+                    email,
+                    password,
+                    loginAs: loginContext
+                })
             });
 
             const data = await res.json();
@@ -36,6 +41,27 @@ const Login = ({ onLoginSuccess }) => {
     return (
         <div className="card auth-container animate-fade-in">
             <h2 className="text-center mb-4">כניסה למערכת</h2>
+
+            {/* --- טאבים לבחירת סוג כניסה --- */}
+            <div className="d-flex justify-content-center mb-4 gap-2">
+                <button
+                    type="button"
+                    className={`btn ${loginContext === 'Client' ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => setLoginContext('Client')}
+                    style={{ flex: 1 }}
+                >
+                    👤 כלקוח
+                </button>
+                <button
+                    type="button"
+                    className={`btn ${loginContext === 'Service Provider' ? 'btn-info' : 'btn-outline'}`}
+                    onClick={() => setLoginContext('Service Provider')}
+                    style={{ flex: 1 }}
+                >
+                    💼 כעסק
+                </button>
+            </div>
+
             <form onSubmit={onSubmit}>
                 <div className="mb-4">
                     <input
@@ -57,8 +83,8 @@ const Login = ({ onLoginSuccess }) => {
                         required
                     />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                    התחבר
+                <button type="submit" className={`btn ${loginContext === 'Client' ? 'btn-primary' : 'btn-info'}`} style={{ width: '100%' }}>
+                    התחבר {loginContext === 'Client' ? 'כלקוח' : 'כעסק'}
                 </button>
                 <div className="text-center mt-3">
                     <button
