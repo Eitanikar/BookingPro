@@ -987,22 +987,58 @@ app.post('/api/appointments/manual', authenticateToken, async (req, res) => {
 });
 
 // --------------------------------------------------------------------
-// [9] Get All Businesses - שליפת רשימת עסקים + תמונה ראשית
+// [9] Get All Businesses - שליפת עסקים + תמונה + דירוג ממוצע + סינון
 // --------------------------------------------------------------------
 app.get('/api/businesses', async (req, res) => {
+    console.log("🔥🔥🔥 IM THE NEW CODE! 🔥🔥🔥");
     try {
-        // השאילתה החדשה:
-        // אנחנו שולפים את כל פרטי העסק (b.*)
-        // ומוסיפים עמודה חדשה (image_url) ע"י תת-שאילתה שלוקחת תמונה אחת מטבלת התמונות
-        const query = `
-            SELECT b.*, 
-            (SELECT image_url FROM business_photos bp WHERE bp.user_id = b.user_id LIMIT 1) as image_url
+        const { name, city } = req.query; // קבלת פרמטרים לחיפוש (אם יש)
+        const params = [];
+        const conditions = [];
+
+        // 1. בניית השאילתה
+        // אנו שולפים את פרטי העסק, תמונה אחת (תת-שאילתה), ומחשבים ממוצע (AVG)
+        let query = `
+            SELECT 
+                b.*, 
+                (SELECT image_url FROM business_photos bp WHERE bp.user_id = b.user_id LIMIT 1) as image_url,
+                COALESCE(ROUND(AVG(r.rating), 1), 0) as average_rating,
+                COUNT(r.id) as review_count
             FROM businesses b
-            ORDER BY b.id DESC
+            LEFT JOIN reviews r ON b.id = r.business_id
         `;
 
-        const result = await db.query(query);
-        res.json(result.rows);
+        // 2. הוספת תנאים דינמיים (למנוע החיפוש)
+        if (name) {
+            conditions.push(`b.business_name ILIKE $${params.length + 1}`);
+            params.push(`%${name}%`);
+        }
+        if (city) {
+            conditions.push(`b.address ILIKE $${params.length + 1}`);
+            params.push(`%${city}%`);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        // 3. חובה להשתמש ב-GROUP BY כשעושים AVG/COUNT
+        query += ' GROUP BY b.id';
+        
+        // 4. סידור התוצאות (חדשים קודם)
+        query += ' ORDER BY b.id DESC';
+
+        const result = await db.query(query, params);
+
+        // 5. המרת המספרים (Postgres מחזיר אותם כמחרוזת לפעמים)
+        const formattedRows = result.rows.map(row => ({
+            ...row,
+            average_rating: parseFloat(row.average_rating),
+            review_count: parseInt(row.review_count)
+        }));
+
+        res.json(formattedRows);
+
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
