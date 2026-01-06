@@ -991,17 +991,16 @@ app.post('/api/appointments/manual', authenticateToken, async (req, res) => {
 });
 
 // --------------------------------------------------------------------
-// [9] Get All Businesses - שליפת עסקים + תמונה + דירוג ממוצע + סינון
+// [9] Get All Businesses - שליפת עסקים + תמונה + דירוג ממוצע + סינון ומיון
 // --------------------------------------------------------------------
 app.get('/api/businesses', async (req, res) => {
-    console.log("🔥🔥🔥 IM THE NEW CODE! 🔥🔥🔥");
     try {
-        const { name, city } = req.query; // קבלת פרמטרים לחיפוש (אם יש)
+        // הוספנו את הפרמטר sort לקליטה מהלקוח
+        const { name, city, sort } = req.query;
         const params = [];
         const conditions = [];
 
-        // 1. בניית השאילתה
-        // אנו שולפים את פרטי העסק, תמונה אחת (תת-שאילתה), ומחשבים ממוצע (AVG)
+        // 1. בניית השאילתה הבסיסית (חישוב ממוצע דירוג וכמות ביקורות)
         let query = `
             SELECT 
                 b.*, 
@@ -1026,15 +1025,26 @@ app.get('/api/businesses', async (req, res) => {
             query += ' WHERE ' + conditions.join(' AND ');
         }
 
-        // 3. חובה להשתמש ב-GROUP BY כשעושים AVG/COUNT
+        // 3. קיבוץ (חובה כשמשתמשים ב-AVG/COUNT)
         query += ' GROUP BY b.id';
-        
-        // 4. סידור התוצאות (חדשים קודם)
-        query += ' ORDER BY b.id DESC';
+
+        // 4. לוגיקת המיון (החלק החדש שהוספנו)
+        switch (sort) {
+            case 'rating_high': // מהגבוה לנמוך
+                // קודם ציון גבוה, ואם יש תיקו אז מי שיש לו יותר ביקורות
+                query += ' ORDER BY average_rating DESC, review_count DESC';
+                break;
+            case 'rating_low': // מהנמוך לגבוה
+                query += ' ORDER BY average_rating ASC';
+                break;
+            default: // ברירת מחדל: עסקים חדשים קודם
+                query += ' ORDER BY b.id DESC';
+                break;
+        }
 
         const result = await db.query(query, params);
 
-        // 5. המרת המספרים (Postgres מחזיר אותם כמחרוזת לפעמים)
+        // 5. המרת המספרים לטיפוסים נכונים
         const formattedRows = result.rows.map(row => ({
             ...row,
             average_rating: parseFloat(row.average_rating),
