@@ -1,29 +1,33 @@
 import React from 'react';
 
-export const RatingStars = ({ rating, count }) => {
-    // פונקציה שמייצרת 5 כוכבים
+export const RatingStars = ({ rating, count, onRate, size = '1.2em' }) => {
+    // יוצר מערך של 5 כוכבים
     const stars = Array.from({ length: 5 }, (_, index) => {
-        const number = index + 0.5; // משמש לחישוב חצאי כוכבים אם נרצה בעתיד
+        const starValue = index + 1;
+        const isFilled = rating >= starValue;
 
         return (
-            <span key={index}>
-                {rating >= index + 1 ? (
-                    <span style={{ color: '#FFD700', fontSize: '1.2em' }}>★</span> // כוכב מלא
-                ) : rating >= number ? (
-                    <span style={{ color: '#FFD700', fontSize: '1.2em' }}>★</span> // (כרגע מתייחסים לחצי כמלא או ריק, נשדרג בהמשך אם צריך)
-                ) : (
-                    <span style={{ color: '#e4e5e9', fontSize: '1.2em' }}>★</span> // כוכב ריק (אפור)
-                )}
+            <span
+                key={index}
+                onClick={() => onRate && onRate(starValue)} // מגיב ללחיצה רק אם הועברה פונקציה
+                style={{
+                    color: isFilled ? '#FFD700' : '#e4e5e9',
+                    fontSize: size,
+                    cursor: onRate ? 'pointer' : 'default',
+                    marginRight: '2px'
+                }}
+            >
+                ★
             </span>
         );
     });
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ display: 'flex' }}>{stars}</div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+            {stars}
             {count !== undefined && (
-                <span style={{ fontSize: '0.85em', color: '#666' }}>
-                    ({count} דירוגים)
+                <span style={{ fontSize: '0.85em', color: '#666', marginRight: '5px' }}>
+                    ({count})
                 </span>
             )}
         </div>

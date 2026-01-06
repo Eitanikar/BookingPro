@@ -228,7 +228,7 @@ app.post('/api/reset-password', async (req, res) => {
 
 
 // --------------------------------------------------------------------
-// [4] Appointments Route - קבלת התורים של המשתמש
+// [4] Appointments Route - קבלת התורים של המשתמש (מעודכן לביקורות)
 // --------------------------------------------------------------------
 app.get('/api/my-appointments', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
@@ -238,9 +238,11 @@ app.get('/api/my-appointments', authenticateToken, async (req, res) => {
         let query;
         let params = [userId];
 
+        // --- בדיקה: האם המשתמש הוא ספק או לקוח? ---
         if (role === 'Service Provider') {
-            // For providers: show appointments where they are the provider
-            // We join with users twice: u1 for provider info (not really needed but consistent), u2 for client name lookup if needed
+            // ============================================================
+            // לוגיקה לספקים (לא השתנה - נשאר בדיוק כמו בקובץ המקורי שלך)
+            // ============================================================
             query = `
                 SELECT 
                     a.id, 
@@ -257,7 +259,9 @@ app.get('/api/my-appointments', authenticateToken, async (req, res) => {
                 ORDER BY a.start_time DESC
             `;
         } else {
-            // For clients: show appointments where they are the client
+            // ============================================================
+            // לוגיקה ללקוחות (מעודכן! הוספנו את business_id לדירוג)
+            // ============================================================
             query = `
                 SELECT 
                     a.id, 
@@ -265,10 +269,13 @@ app.get('/api/my-appointments', authenticateToken, async (req, res) => {
                     u.name as provider_name, 
                     a.start_time, 
                     a.status, 
-                    s.price
+                    s.price,
+                    b.id as business_id,    -- שדה חובה לדירוג
+                    b.business_name         -- שדה לנוחות תצוגה
                 FROM appointments a
                 JOIN services s ON a.service_id = s.id
                 JOIN users u ON a.provider_id = u.id
+                LEFT JOIN businesses b ON u.id = b.user_id -- חיבור לקבלת פרטי העסק
                 WHERE a.client_id = $1
                 ORDER BY a.start_time ASC
             `;
@@ -282,9 +289,6 @@ app.get('/api/my-appointments', authenticateToken, async (req, res) => {
     }
 });
 
-// --------------------------------------------------------------------
-// [5] Availability Route - בדיקת שעות פנויות (לוגיקה בסיסית)
-// --------------------------------------------------------------------
 // --------------------------------------------------------------------
 // [5] Availability Route - בדיקת שעות פנויות (לוגיקה מתקדמת)
 // --------------------------------------------------------------------
@@ -1249,6 +1253,33 @@ app.post('/api/test/send-reminders', async (req, res) => {
     } catch (err) {
         console.error('Error triggering reminders:', err.message);
         res.status(500).json({ msg: 'שגיאה בביצוע בדיקה' });
+    }
+});
+
+// --------------------------------------------------------------------
+// [15] Reviews Route - הוספת ביקורת
+// --------------------------------------------------------------------
+app.post('/api/reviews', authenticateToken, async (req, res) => {
+    const { businessId, rating, comment } = req.body;
+    const clientId = req.user.userId;
+
+    if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ msg: 'דירוג חייב להיות בין 1 ל-5' });
+    }
+
+    try {
+        // שמירת הביקורת (אם כבר קיימת ביקורת מאותו משתמש לאותו עסק - נעדכן אותה)
+        await db.query(`
+            INSERT INTO reviews (user_id, business_id, rating, comment)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (user_id, business_id) 
+            DO UPDATE SET rating = $3, comment = $4, created_at = CURRENT_TIMESTAMP;
+        `, [clientId, businessId, rating, comment]);
+
+        res.json({ msg: 'הביקורת נשמרה בהצלחה!' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('שגיאה בשמירת הביקורת');
     }
 });
 
