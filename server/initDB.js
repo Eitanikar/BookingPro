@@ -101,6 +101,29 @@ const initDB = async () => {
             );
         `);
 
+        // --- הוספה קריטית: יצירת טבלת עסקים (חייב להיות לפני reviews) ---
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS businesses (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                business_name VARCHAR(100) NOT NULL,
+                address VARCHAR(255),
+                phone VARCHAR(50),
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // --- הוספה קריטית: יצירת טבלת תמונות ---
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS business_photos (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                image_url TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
         // 10. Create reviews table for business ratings
         await db.query(`
             CREATE TABLE IF NOT EXISTS reviews (
@@ -109,7 +132,8 @@ const initDB = async () => {
                 business_id INTEGER REFERENCES businesses(id),
                 rating INTEGER CHECK (rating >= 1 AND rating <= 5),
                 comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, business_id)
             );
         `);
 
