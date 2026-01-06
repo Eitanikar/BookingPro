@@ -40,9 +40,11 @@ const Sidebar = ({ isOpen, onClose, user, setView, handleLogout, onMyBusinessCli
                             דף הבית
                         </button>
 
-                        <button className="nav-link" onClick={() => handleLinkClick('businesses')}>
-                            רשימת עסקים
-                        </button>
+                        {user.role === 'Client' && (
+                            <button className="nav-link" onClick={() => handleLinkClick('businesses')}>
+                                רשימת עסקים
+                            </button>
+                        )}
 
                         <button className="nav-link" onClick={() => handleLinkClick('my-appointments')}>
                             התורים שלי
@@ -51,8 +53,8 @@ const Sidebar = ({ isOpen, onClose, user, setView, handleLogout, onMyBusinessCli
                         {user.role === 'Service Provider' && (
                             <>
                                 {/* [2] הכפתור החדש - לוחצים עליו והוא מפעיל את הפונקציה וסוגר את התפריט */}
-                                <button 
-                                    className="nav-link" 
+                                <button
+                                    className="nav-link"
                                     onClick={() => { onMyBusinessClick(); onClose(); }}
                                     style={{ fontWeight: 'bold', color: '#3f51b5' }}
                                 >

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function ResetPassword({ token, onResetSuccess }) {
+function ResetPassword({ token, onResetSuccess, onBack }) {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [msg, setMsg] = useState('');
@@ -71,6 +71,10 @@ function ResetPassword({ token, onResetSuccess }) {
                     <button type="submit" className="btn btn-success w-100">עדכן סיסמה</button>
                 </form>
             )}
+
+            <button onClick={onBack} className="btn btn-secondary w-100 mt-3">
+                חזרה למסך הכניסה
+            </button>
         </div>
     );
 }

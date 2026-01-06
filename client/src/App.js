@@ -24,6 +24,7 @@ function App() {
   // States for Booking Flow
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
+  const [isRegisterSuccess, setIsRegisterSuccess] = useState(false);
 
   // בדיקת URL לאיפוס סיסמה
   React.useEffect(() => {
@@ -57,24 +58,24 @@ function App() {
   // --- [פונקציה חדשה] מציאת העסק שלי ומעבר לצפייה בו ---
   const handleMyBusinessClick = async () => {
     try {
-        const res = await fetch('http://localhost:5000/api/businesses');
-        const data = await res.json();
-        
-        // חיפוש העסק ששייך למשתמש המחובר
-        const myBiz = data.find(b => String(b.user_id) === String(user.id));
+      const res = await fetch('http://localhost:5000/api/businesses');
+      const data = await res.json();
 
-        if (myBiz) {
-            setSelectedBusiness(myBiz); // שמירת העסק בזיכרון
-            setView('business-profile'); // מעבר למסך התצוגה (אותו מסך של הלקוח)
-            setIsSidebarOpen(false); // סגירת התפריט אם הוא פתוח
-        } else {
-            alert('עדיין לא הגדרת פרופיל עסקי. אנא צור אחד קודם.');
-            setView('business-setup');
-            setIsSidebarOpen(false);
-        }
+      // חיפוש העסק ששייך למשתמש המחובר
+      const myBiz = data.find(b => String(b.user_id) === String(user.id));
+
+      if (myBiz) {
+        setSelectedBusiness(myBiz); // שמירת העסק בזיכרון
+        setView('business-profile'); // מעבר למסך התצוגה (אותו מסך של הלקוח)
+        setIsSidebarOpen(false); // סגירת התפריט אם הוא פתוח
+      } else {
+        alert('עדיין לא הגדרת פרופיל עסקי. אנא צור אחד קודם.');
+        setView('business-setup');
+        setIsSidebarOpen(false);
+      }
     } catch (err) {
-        console.error("Error fetching my business:", err);
-        alert('שגיאה בטעינת העסק');
+      console.error("Error fetching my business:", err);
+      alert('שגיאה בטעינת העסק');
     }
   };
 
@@ -120,34 +121,40 @@ function App() {
                   maxWidth: '800px',
                   margin: '0 auto'
                 }}>
-                  <div className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
-                    <h3>דפדפו בעסקים</h3>
-                    <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
-                  </div>
-                  
-                  {/* --- כפתור קיצור דרך לעסק שלי גם בדף הבית (לספקים בלבד) --- */}
-                  {user.role === 'Service Provider' && (
-                      <div className="card hover-card" onClick={handleMyBusinessClick} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center', border: '1px solid #3f51b5' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏠</div>
-                        <h3>העסק שלי</h3>
-                        <p className="text-muted">צפה איך הלקוחות רואים אותך</p>
-                      </div>
+                  {/* --- כפתור לעיון בעסקים (ללקוחות בלבד) --- */}
+                  {user.role === 'Client' && (
+                    <div className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
+                      <h3>דפדפו בעסקים</h3>
+                      <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
+                    </div>
                   )}
 
-                  <div className="card hover-card" onClick={() => setView('my-appointments')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📅</div>
-                    <h3>התורים שלי</h3>
-                    <p className="text-muted">ניהול וצפייה בתורים</p>
-                  </div>
+                  {/* --- כפתור קיצור דרך לעסק שלי גם בדף הבית (לספקים בלבד) --- */}
+                  {user.role === 'Service Provider' && (
+                    <div className="card hover-card" onClick={handleMyBusinessClick} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center', border: '1px solid #3f51b5' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏠</div>
+                      <h3>העסק שלי</h3>
+                      <p className="text-muted">צפה איך הלקוחות רואים אותך</p>
+                    </div>
+                  )}
+
+                  {/* --- כפתור לתורים שלי (לכולם) --- */}
+                  {(user.role === 'Client' || user.role === 'Service Provider') && (
+                    <div className="card hover-card" onClick={() => setView('my-appointments')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📅</div>
+                      <h3>התורים שלי</h3>
+                      <p className="text-muted">ניהול וצפייה בתורים</p>
+                    </div>
+                  )}
 
                   {/* --- כפתור לעריכת פרטים אישיים --- */}
                   {user.role === 'Client' && (
-                      <div className="card hover-card" onClick={() => setView('client-details')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>👤</div>
-                        <h3>פרטים אישיים</h3>
-                        <p className="text-muted">עדכן את הפרטים שלך</p>
-                      </div>
+                    <div className="card hover-card" onClick={() => setView('client-details')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>👤</div>
+                      <h3>פרטים אישיים</h3>
+                      <p className="text-muted">עדכן את הפרטים שלך</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -159,7 +166,7 @@ function App() {
                   <button onClick={() => setView('login')} className="btn btn-success" style={{ margin: '0 5px' }}>
                     כניסה למערכת
                   </button>
-                  <button onClick={() => setView('register')} className="btn btn-primary" style={{ margin: '0 5px' }}>
+                  <button onClick={() => { setView('register'); setIsRegisterSuccess(false); }} className="btn btn-primary" style={{ margin: '0 5px' }}>
                     הרשמה ללקוח חדש
                   </button>
                 </div>
@@ -178,8 +185,12 @@ function App() {
 
         {view === 'register' && (
           <div className="text-center animate-fade-in">
-            <Register />
-            <button onClick={() => setView('home')} className="btn btn-secondary mt-4">ביטול וחזרה</button>
+            <Register onRegisterSuccess={() => setIsRegisterSuccess(true)} />
+            {isRegisterSuccess ? (
+              <button onClick={() => setView('login')} className="btn btn-success mt-4">המשך לכניסה לאתר</button>
+            ) : (
+              <button onClick={() => setView('home')} className="btn btn-secondary mt-4">ביטול וחזרה</button>
+            )}
           </div>
         )}
 
@@ -222,6 +233,10 @@ function App() {
                 setView('login');
                 window.history.pushState({}, '', '/');
               }}
+              onBack={() => {
+                setView('login');
+                window.history.pushState({}, '', '/');
+              }}
             />
           </div>
         )}
@@ -258,6 +273,9 @@ function App() {
               setSelectedBusiness(biz);
               setView('business-profile');
             }} />
+            <div className="text-center mt-4">
+              <button onClick={() => setView('home')} className="btn btn-secondary">חזרה לדף הבית</button>
+            </div>
           </div>
         )}
 

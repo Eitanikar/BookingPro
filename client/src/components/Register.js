@@ -1,7 +1,7 @@
 // קובץ: client/src/components/Register.js
 import React, { useState } from 'react';
 
-const Register = () => {
+const Register = ({ onRegisterSuccess }) => {
     const [formData, setFormData] = useState({
         name: '', email: '', password: '', role: 'Client',
     });
@@ -27,6 +27,7 @@ const Register = () => {
 
             if (res.ok) {
                 setMessage(`ההרשמה הצליחה! ברוך הבא, ${data.user.name}.`);
+                if (onRegisterSuccess) onRegisterSuccess();
             } else {
                 setMessage(`שגיאת רישום: ${data.msg || 'אירעה שגיאה בשרת.'}`);
             }
