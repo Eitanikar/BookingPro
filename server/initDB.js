@@ -101,6 +101,18 @@ const initDB = async () => {
             );
         `);
 
+        // 10. Create reviews table for business ratings
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                business_id INTEGER REFERENCES businesses(id),
+                rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
         console.log('Database initialization complete.');
 
     } catch (err) {
