@@ -15,7 +15,19 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('home');
+  
+  // קביעת ה-view ההתחלתי לפי ה-URL
+  const getInitialView = () => {
+    const path = window.location.pathname;
+    if (path.includes('login')) return 'login';
+    if (path.includes('register')) return 'register';
+    if (path.includes('reset-password')) return 'reset-password';
+    if (path.includes('forgot-password')) return 'forgot-password';
+    if (path.includes('home')) return 'home';
+    return 'home';
+  };
+  
+  const [view, setView] = useState(getInitialView());
   const [resetToken, setResetToken] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -46,6 +58,7 @@ function App() {
     setUser(userData);
     localStorage.setItem('token', token);
     setView('home');
+    window.history.pushState({}, '', '/home');
   };
 
   const handleLogout = () => {
