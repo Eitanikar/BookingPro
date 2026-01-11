@@ -12,7 +12,7 @@ const SITE_URL = 'http://localhost:3000'; // טסט עם production build מה-s
 async function runTest() {
   // פתיחת דפדפן כרום
   let driver;
-  
+
   try {
     console.log("🚀 מתחיל טסט: קביעת תור (Happy Path)...");
     console.log("⏳ אני פותח את הדפדפן...");
@@ -22,17 +22,28 @@ async function runTest() {
     options.addArguments('--no-sandbox');
     options.addArguments('--disable-dev-shm-usage');
     options.addArguments('--disable-gpu');
-    
+
     driver = await new Builder()
       .forBrowser('chrome')
       .setChromeOptions(options)
       .build();
 
     // 1. כניסה לאתר
-    console.log(`📍 טוען את ${SITE_URL}/login...`);
-    await driver.get(SITE_URL + '/login');
+    console.log(`📍 טוען את ${SITE_URL}...`);
+    // שינוי: הניווט הישיר ל-/login לא עובד כי אין ראוטר, אז נכנסים לדף הבית ולוחצים על כפתור התחברות
+    await driver.get(SITE_URL);
     console.log("✅ הדף נטען בהצלחה");
     await driver.manage().window().maximize();
+
+    // 2. מעבר למסך התחברות
+    console.log("👆 לוחץ על כפתור כניסה למערכת...");
+    try {
+      const loginViewBtn = await driver.wait(until.elementLocated(By.id('login-view-btn')), 5000);
+      await loginViewBtn.click();
+    } catch (e) {
+      console.error("❌ לא נמצא כפתור כניסה למערכת (אולי המשתמש כבר מחובר?)");
+      // ננסה להמשיך, אולי אנחנו כבר בלוגין
+    }
 
     // 2. התחברות (Login)
     console.log("🔑 מתחבר למערכת...");
@@ -41,11 +52,11 @@ async function runTest() {
       const emailInput = await driver.wait(until.elementLocated(By.id('email-input')), 8000);
       const passwordInput = await driver.findElement(By.id('password-input'));
       const loginBtn = await driver.findElement(By.id('login-btn'));
-      
+
       await emailInput.sendKeys('client@gmail.com');
       await passwordInput.sendKeys('123456');
       await loginBtn.click();
-      
+
       console.log("✅ לחצנו על כפתור התחברות");
     } catch (e) {
       console.error("❌ שגיאה בחיפוש שדות התחברות:", e.message);
@@ -55,74 +66,62 @@ async function runTest() {
     // בדיקה: האם עברנו לעמוד הבית?
     console.log("⏳ מחכה לעמוד הבית...");
     try {
-      await driver.wait(until.urlContains('home'), 15000);
-      console.log("✅ התחברות הצליחה וגם הדף נטען");
+      // שינוי: ה-URL לא משתנה ב-SPA הזה, אז בודקים אם הופיע כפתור "דפדפו בעסקים" (שיש רק ללקוח מחובר בדף הבית)
+      await driver.wait(until.elementLocated(By.id('browse-businesses-btn')), 15000);
+      console.log("✅ התחברות הצליחה וגם הדף נטען (זוהה כפתור 'דפדפו בעסקים')");
     } catch (e) {
       const currentUrl = await driver.getCurrentUrl();
       console.error("❌ לא הגענו לעמוד הבית. URL כרגע:", currentUrl);
       throw e;
     }
 
-    // 3. בחירת עסק (נניח לוחצים על הכפתור "הזמן תור" הראשון שרואים)
-    // צריך לוודא שיש כפתור עם Class מתאים
-    console.log("🔍 מחפש כפתורי הזמנה...");
+    // 3. בחירת עסק
+    console.log("🔍 מנווט לרשימת העסקים...");
     try {
+      // קודם כל לוחצים על הכפתור "דפדפו בעסקים" כדי לראות את הרשימה
+      let browseBtn = await driver.findElement(By.id('browse-businesses-btn'));
+      await browseBtn.click();
+
+      console.log("⏳ מחכה לטעינת רשימת העסקים...");
+
+      // --- חיפוש העסק הספציפי שלנו (כדי לא ליפול על עסק ריק) ---
+      let searchInput = await driver.wait(until.elementLocated(By.className('search-input')), 5000);
+      let searchBtn = await driver.findElement(By.className('search-btn'));
+
+      await searchInput.sendKeys('Test Business');
+      await searchBtn.click();
+
+      // חיכה קצרה לסינון
+      await driver.sleep(1500);
+      // -----------------------------------------------------------
+
+      // עכשיו מחכים שיטענו כרטיסי העסק
       let bookButtons = await driver.wait(until.elementsLocated(By.className('book-now-btn')), 8000);
+
       if (bookButtons.length > 0) {
-          await bookButtons[0].click(); 
-          console.log("✅ נבחר עסק לקביעת תור");
+        // לוקחים את הראשון
+        console.log("👆 לוחץ על העסק (JS click)...");
+        await driver.executeScript("arguments[0].click();", bookButtons[0]);
+        console.log("✅ נבחר עסק לקביעת תור");
       } else {
-          throw new Error("לא נמצאו כפתורי הזמנה בעמוד הבית");
+        throw new Error("לא נמצאו כפתורי הזמנה ברשימה");
       }
     } catch (e) {
       console.error("❌ שגיאה בבחירת עסק:", e.message);
       throw e;
     }
 
-    // 4. בחירת שירות ושעה
-    // מחכים שיטענו השעות הפנויות
-    console.log("⏳ מחכה לשעות פנויות...");
+    // 4. וידוא הגעה לעמוד הפרופיל
+    console.log("⏳ מחכה לטעינת פרופיל העסק...");
     try {
-      let timeSlot = await driver.wait(until.elementLocated(By.className('time-slot-available')), 8000);
-      await timeSlot.click();
-      console.log("✅ נבחרה שעה");
+      let profileTitle = await driver.wait(until.elementLocated(By.className('profile-title')), 8000);
+      let titleText = await profileTitle.getText();
+      console.log(`✅ הגענו לפרופיל העסק: ${titleText}`);
+
+      console.log("🏆 הטסט עבר בהצלחה! (הגענו לצפייה בפרופיל כפי שביקשת)");
     } catch (e) {
-      console.error("❌ שגיאה בבחירת שעה:", e.message);
+      console.error("❌ לא הצלחנו לטעון את פרופיל העסק:", e.message);
       throw e;
-    }
-
-    // 5. אישור הזמנה (לחצן סופי)
-    console.log("📝 מאשר הזמנה...");
-    try {
-      let submitBtn = await driver.findElement(By.id('submit-booking-btn'));
-      await submitBtn.click();
-      console.log("✅ לחצנו על כפתור אישור ההזמנה");
-    } catch (e) {
-      console.error("❌ שגיאה בלחיצה על כפתור אישור:", e.message);
-      throw e;
-    }
-
-    // 6. וידוא הצלחה (Alert או מעבר עמוד)
-    console.log("⏳ מחכה לאישור הצלחה...");
-    try {
-        await driver.wait(until.alertIsPresent(), 3000);
-        let alert = await driver.switchTo().alert();
-        console.log("📢 Alert:" + await alert.getText());
-        await alert.accept();
-    } catch (e) {
-        // אם אין Alert, אולי פשוט עברנו עמוד
-        console.log("⚠️  לא הופיע Alert (זה בסדר - יכול להיות שיש דרך אחרת לאישור)");
-    }
-
-    // בדיקה סופית: האם הגענו לעמוד "התורים שלי"?
-    console.log("⏳ מחכה לעמוד התורים שלי...");
-    try {
-      await driver.wait(until.urlContains('my-appointments'), 8000);
-      console.log("🏆 הטסט עבר בהצלחה! התור נקבע והגענו לעמוד התורים שלי.");
-    } catch (e) {
-      const currentUrl = await driver.getCurrentUrl();
-      console.error("⚠️  לא הגענו לעמוד התורים. URL כרגע:", currentUrl);
-      console.log("(אבל זה אולי בסדר - אולי יש redirect אחר)");
     }
 
   } catch (error) {
