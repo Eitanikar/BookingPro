@@ -31,7 +31,7 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                 throw new Error('Failed to fetch availability');
             }
             const data = await res.json();
-            
+
             if (!data || data.length === 0) {
                 setMsg('אין שעות זמינות ביום זה. בחר יום אחר או בדוק אם בעל העסק הגדיר זמינות.');
                 setSlots([]);
@@ -83,7 +83,7 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                     time: selectedTime
                 })
             });
-            
+
             if (!res.ok) {
                 const data = await res.json();
                 setMsg('שגיאה: ' + (data.msg || 'כשל בקביעת התור'));
@@ -94,12 +94,12 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
             const data = await res.json();
             // Show success message
             setMsg('✅ התור נקבע בהצלחה! עובר לעמוד התורים שלך...');
-            
+
             // Wait a moment to show success message, then navigate
             setTimeout(() => {
                 onBookingSuccess();
             }, 1500);
-            
+
         } catch (err) {
             console.error('Booking error:', err);
             setMsg('שגיאת תקשורת: ' + err.message);
@@ -146,7 +146,7 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                             {selectedDate ? `תאריך נבחר: ${selectedDate}` : 'בחר תאריך בלוח השנה'}
                         </h4>
 
-                {!selectedDate && (
+                        {!selectedDate && (
                             <p className="text-center text-muted mt-4">
                                 לחץ על יום בלוח השנה כדי לראות שעות פנויות.
                             </p>
@@ -183,7 +183,7 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                                             key={slot}
                                             onClick={() => setSelectedTime(slot)}
                                             className={`btn ${selectedTime === slot ? 'btn-primary' : 'btn-outline-primary'}`}
-                                            style={{ 
+                                            style={{
                                                 minWidth: '80px',
                                                 padding: '10px 12px',
                                                 fontSize: '0.95rem',
@@ -199,16 +199,16 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
 
                         <div className="mt-auto pt-4">
                             {msg && !msg.includes('✅') && (
-                                <p 
+                                <p
                                     className="text-center text-danger"
                                     style={{ marginBottom: '15px', fontSize: '0.95rem', fontWeight: '500' }}
                                 >
                                     ⚠️ {msg}
                                 </p>
                             )}
-                            
+
                             {msg && msg.includes('✅') && (
-                                <p 
+                                <p
                                     className="text-center text-success"
                                     style={{ marginBottom: '15px', fontSize: '1rem', fontWeight: 'bold' }}
                                 >
@@ -229,6 +229,7 @@ const BookingDateSelection = ({ service, business, user, onBack, onBookingSucces
                             )}
 
                             <button
+                                id="submit-booking-btn"
                                 onClick={handleBook}
                                 disabled={!selectedDate || !selectedTime || booking}
                                 className="btn btn-success w-100 py-3 font-bold"

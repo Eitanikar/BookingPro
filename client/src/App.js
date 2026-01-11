@@ -123,7 +123,7 @@ function App() {
                 }}>
                   {/* --- כפתור לעיון בעסקים (ללקוחות בלבד) --- */}
                   {user.role === 'Client' && (
-                    <div className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
+                    <div id="browse-businesses-btn" className="card hover-card" onClick={() => setView('businesses')} style={{ cursor: 'pointer', padding: '30px', textAlign: 'center' }}>
                       <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏢</div>
                       <h3>דפדפו בעסקים</h3>
                       <p className="text-muted">עיין ברשימת העסקים הזמינים</p>
@@ -163,7 +163,7 @@ function App() {
                 <h3>🔒 התוכן זמין למשתמשים רשומים בלבד</h3>
                 <p className="text-muted">כדי להתחיל, עליך להתחבר למערכת.</p>
                 <div className="mt-4 flex justify-center gap-4">
-                  <button onClick={() => setView('login')} className="btn btn-success" style={{ margin: '0 5px' }}>
+                  <button onClick={() => setView('login')} className="btn btn-success" style={{ margin: '0 5px' }} id="login-view-btn">
                     כניסה למערכת
                   </button>
                   <button onClick={() => { setView('register'); setIsRegisterSuccess(false); }} className="btn btn-primary" style={{ margin: '0 5px' }}>
