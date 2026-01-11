@@ -71,6 +71,7 @@ const Login = ({ onLoginSuccess }) => {
                         value={email}
                         onChange={onChange}
                         required
+                        id="email-input"
                     />
                 </div>
                 <div className="mb-4">
@@ -81,9 +82,10 @@ const Login = ({ onLoginSuccess }) => {
                         value={password}
                         onChange={onChange}
                         required
+                        id="password-input"
                     />
                 </div>
-                <button type="submit" className={`btn ${loginContext === 'Client' ? 'btn-primary' : 'btn-info'}`} style={{ width: '100%' }}>
+                <button type="submit" className={`btn ${loginContext === 'Client' ? 'btn-primary' : 'btn-info'}`} style={{ width: '100%' }} id="login-btn">
                     התחבר {loginContext === 'Client' ? 'כלקוח' : 'כעסק'}
                 </button>
                 <div className="text-center mt-3">

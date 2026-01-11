@@ -9,11 +9,13 @@ const BusinessProfileClientView = ({ business, onBack, onSelectService, user }) 
     useEffect(() => {
         const fetchServices = async () => {
             try {
+                console.log('Fetching services for provider:', business.user_id); // DEBUG
                 const res = await fetch(`http://localhost:5000/api/services/provider/${business.user_id}`);
 
                 if (!res.ok) throw new Error('Failed to load services');
 
                 const data = await res.json();
+                console.log('Fetched services:', data); // DEBUG
                 setServices(data);
                 setLoading(false);
             } catch (err) {
@@ -27,6 +29,8 @@ const BusinessProfileClientView = ({ business, onBack, onSelectService, user }) 
             fetchServices();
         }
     }, [business]);
+
+    console.log('BusinessProfileClientView rendered. User:', user); // DEBUG
 
     if (!business) return null;
 

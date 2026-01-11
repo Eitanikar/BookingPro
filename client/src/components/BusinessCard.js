@@ -36,7 +36,7 @@ const BusinessCard = ({ business, onSelect }) => {
             </div>
 
             <button
-                className="card-action-btn"
+                className="card-action-btn book-now-btn"
                 onClick={() => onSelect(business)}
             >
                 הזמן תור / צפה בפרופיל

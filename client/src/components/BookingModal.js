@@ -159,7 +159,7 @@ const BookingModal = ({ business, user, onClose, onSuccess }) => {
                                         {availableTimes.map(time => (
                                             <div
                                                 key={time}
-                                                className={`time-slot ${selectedTime === time ? 'selected' : ''}`}
+                                                className={`time-slot time-slot-available ${selectedTime === time ? 'selected' : ''}`}
                                                 onClick={() => setSelectedTime(time)}
                                             >
                                                 {time}
@@ -174,6 +174,7 @@ const BookingModal = ({ business, user, onClose, onSuccess }) => {
                             className="btn btn-primary w-full mt-6"
                             disabled={!selectedTime || isLoading}
                             onClick={handleBooking}
+                            id="submit-booking-btn"
                         >
                             {isLoading ? 'מבצע הזמנה...' : 'אשר הזמנה'}
                         </button>

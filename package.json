@@ -1,0 +1,11 @@
+{
+    "name": "booking-pro",
+    "version": "1.0.0",
+    "description": "BookingPro Application",
+    "scripts": {
+        "start": "concurrently \"npm run start --prefix server\" \"npm run start --prefix client\""
+    },
+    "dependencies": {
+        "concurrently": "^8.2.2"
+    }
+}

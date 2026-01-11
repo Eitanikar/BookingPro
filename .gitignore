@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+.env
+dist/
+build/
+coverage/
+
+# Temporary and local scripts
+*.log
+check_reviews.js
+drop_reviews.js
+seed_test_data.js
+server/seed_test_data.js
+
+# Test dependencies (keep tests folder but ignore its node_modules)
+tests/node_modules/
