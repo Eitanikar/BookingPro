@@ -11,11 +11,40 @@ const MyAppointments = ({ user }) => {
     // --- State לפרטי לקוחות (עבור ספקים) ---
     const [clientDetails, setClientDetails] = useState({});
 
-    // --- [חדש] State לביקורות ---
+    // --- State לביקורות ---
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [selectedApptForReview, setSelectedApptForReview] = useState(null);
 
     const isServiceProvider = user && user.role === 'Service Provider';
+
+    // --- [חדש] פונקציה לביטול תור (מחוברת לשרת ולטסטים) ---
+    const handleCancel = async (id) => {
+        if (!window.confirm("האם אתה בטוח שברצונך לבטל את התור?")) return;
+
+        try {
+            const token = localStorage.getItem('token'); 
+            const res = await fetch(`http://localhost:5000/api/appointments/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                alert("התור בוטל בהצלחה! 🗑️");
+                // עדכון הרשימה מיידית בלי רענון דף
+                setAppointments(prev => prev.filter(app => app.id !== id));
+            } else {
+                alert(data.msg || "שגיאה בביטול התור");
+            }
+        } catch (error) {
+            console.error("Error cancelling appointment:", error);
+            alert("שגיאה בתקשורת עם השרת");
+        }
+    };
 
     // פונקציה למשיכת התורים
     const fetchAppointments = async () => {
@@ -28,8 +57,7 @@ const MyAppointments = ({ user }) => {
             if (!res.ok) throw new Error('Failed to fetch appointments');
             const data = await res.json();
             setAppointments(data || []);
-
-            // אם זה ספק, נמשוך גם פרטים נוספים על הלקוחות (כמו בקוד המקורי שלך)
+ 
             if (isServiceProvider && data && data.length > 0) {
                 const uniqueClientIds = [...new Set(data.map(a => a.client_id).filter(id => id))];
                 uniqueClientIds.forEach(fetchClientDetails);
@@ -42,7 +70,7 @@ const MyAppointments = ({ user }) => {
         }
     };
 
-    // פונקציה למשיכת פרטי לקוח (עבור ספקים)
+    // פונקציה למשיכת פרטי לקוח
     const fetchClientDetails = async (clientId) => {
         try {
             const res = await fetch(`http://localhost:5000/api/client-details/${clientId}`);
@@ -59,24 +87,28 @@ const MyAppointments = ({ user }) => {
         if (user) fetchAppointments();
         // eslint-disable-next-line
     }, [user]);
-
-    // --- [חדש] פונקציה לפתיחת חלון הדירוג ---
+ 
     const handleOpenReview = (appt) => {
         setSelectedApptForReview(appt);
         setIsReviewModalOpen(true);
     };
 
-    // סינון תורים (עתידיים מול היסטוריה)
+    // סינון תורים
     const now = new Date();
     const upcomingList = appointments.filter(a => new Date(a.start_time) >= now);
     const historyList = appointments.filter(a => new Date(a.start_time) < now);
 
-    // עיצוב כרטיס תור
+    // --- עיצוב כרטיס תור (כולל השינויים לטסטים וכפתור ביטול) ---
     const renderAppointmentCard = (appt, isHistory = false) => {
         const details = appt.client_id ? clientDetails[appt.client_id] : null;
 
         return (
-            <div key={appt.id} className="card mb-3" style={{ borderRight: isHistory ? '4px solid #999' : '4px solid #2196F3', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', backgroundColor: 'white' }}>
+            <div 
+                key={appt.id} 
+                // [חשוב לטסט] הוספנו כאן את appointment-card
+                className="card mb-3 appointment-card" 
+                style={{ borderRight: isHistory ? '4px solid #999' : '4px solid #2196F3', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', backgroundColor: 'white' }}
+            >
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
                         <h4 style={{ margin: '0 0 5px 0', fontSize: '1.1rem' }}>{appt.service_name}</h4>
@@ -95,34 +127,44 @@ const MyAppointments = ({ user }) => {
                         </p>
                     </div>
 
-                    {/* --- [חדש] כפתור דירוג - מופיע רק ללקוח, רק בהיסטוריה --- */}
-                    {!isServiceProvider && isHistory && (
-                        <button
-                            className="btn btn-sm"
-                            onClick={() => handleOpenReview(appt)}
-                            style={{
-                                border: '1px solid #ffc107',
-                                color: '#ff8f00',
-                                background: '#fffbeb',
-                                padding: '5px 12px',
-                                borderRadius: '20px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px'
-                            }}
-                        >
-                            ⭐ דרג
-                        </button>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {/* כפתור דירוג - רק בהיסטוריה וללקוח בלבד */}
+                        {!isServiceProvider && isHistory && (
+                            <button
+                                className="btn btn-sm"
+                                onClick={() => handleOpenReview(appt)}
+                                style={{
+                                    border: '1px solid #ffc107',
+                                    color: '#ff8f00',
+                                    background: '#fffbeb',
+                                    borderRadius: '20px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                ⭐ דרג
+                            </button>
+                        )}
+
+                        {/* --- [חדש] כפתור ביטול - רק בתורים עתידיים --- */}
+                        {!isHistory && (
+                            <button 
+                                // [חשוב לטסט] הוספנו כאן את cancel-btn
+                                className="btn btn-outline-danger btn-sm cancel-btn"
+                                onClick={() => handleCancel(appt.id)}
+                                title="בטל תור"
+                            >
+                                ביטול 🗑️
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         );
     };
 
     if (isServiceProvider && activeTab === 'calendar') {
-        return <ProviderCalendar user={user} />;
+        // וודא שקומפוננטת ProviderCalendar מיובאת או קיימת, אחרת שים פה הערה
+        return typeof ProviderCalendar !== 'undefined' ? <ProviderCalendar user={user} /> : <div>לוח שנה בבנייה...</div>;
     }
 
     return (
@@ -130,7 +172,7 @@ const MyAppointments = ({ user }) => {
             <h2 className="text-center mb-4">התורים שלי</h2>
 
             {/* טאבים */}
-            <div className="d-flex justify-content-center gap-3 mb-4" style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <div className="d-flex justify-content-center gap-3 mb-4">
                 {isServiceProvider && (
                     <button className={`btn ${activeTab === 'calendar' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setActiveTab('calendar')}>
                         📅 יומן
@@ -156,8 +198,7 @@ const MyAppointments = ({ user }) => {
                     historyList.length > 0 ? historyList.map(a => renderAppointmentCard(a, true)) : <p className="text-center text-muted">אין היסטוריית תורים</p>
                 )}
             </div>
-
-            {/* --- [חדש] החלון הקופץ לדירוג --- */}
+ 
             <AddReviewModal
                 isOpen={isReviewModalOpen}
                 onClose={() => setIsReviewModalOpen(false)}
