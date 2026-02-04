@@ -20,21 +20,14 @@ This project simulates a real-world development lifecycle using **Azure DevOps**
 
 ### 1. Agile Management (ADO Boards)
 Managed tasks, user stories, and sprints using Kanban boards.
-> *Please ensure you have an image named 'board.png' in the documentation folder*
-![Kanban Board](documentation/board.png)
 
 ### 2. Quality Assurance & Bug Tracking
 Detailed bug reports were documented, including reproduction steps, severity, and priority.
-> *Please ensure you have an image named 'bug.png' in the documentation folder*
-![Bug Report Example](documentation/bug.png)
 
 ### 3. E2E Automation Testing
 Developed a robust **Selenium WebDriver** script to verify critical flows.
 * **Test Scenario:** Full lifecycle check including Booking -> Handling User Disconnection (Session recovery) -> Cancellation.
 * **Logic:** The script handles dynamic elements, alerts, and navigation without refreshing the page to maintain session state.
-
-> *Please ensure you have an image named 'automation.png' or a GIF in the documentation folder*
-![Automation Script](documentation/automation.png)
 
 ---
 
@@ -57,10 +50,20 @@ Follow these steps to get the project running on your machine:
 git clone [https://github.com/Eitanikar/BookingPro.git](https://github.com/Eitanikar/BookingPro.git)
 cd BookingPro
 ```
-### 2. Backend Setup
+# Install dependencies
 ```bash
-cd server
 npm install
+cd server && npm install
+cd ../client && npm install
+cd ..
+```
+
+### 2. Configure Environment
+Create a .env file in the server folder with your credentials:
+```bash
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
+PORT=3000
 ```
 * Create a `.env` file in the `server` folder with your credentials:
 ```env
@@ -68,13 +71,14 @@ MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_secret_key
 PORT=3000
 ```
-### 3.Frontend Setup
+### 3. Run the App 🚀
+Start both the Backend and Frontend with a single command from the root directory:
 Open a new terminal:
 ```bash
-cd client
-npm install
 npm start
 ```
+The browser should open automatically at http://localhost:3000
+
 ### 4. Run Automation Tests (Optional)
 To see the Selenium bot in action:
 ```bash
